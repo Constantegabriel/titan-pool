@@ -1,34 +1,62 @@
-import { weekdayOf } from './dates'
+import { occursOn } from './recurrence'
 import type { Client, IsoDate, Pool, Visit } from './types'
 
 export interface AgendaItem {
+  /** Chave estável: id da visita, ou `plan:<piscina>` para ocorrência da agenda fixa ainda não registrada. */
+  key: string
   pool: Pool
   client: Client
+  /** Registro da visita, se já existe (agendada, em andamento, feita, pulada). */
   visit: Visit | null
-  /** true quando a visita foi registrada num dia fora da agenda fixa (visita avulsa). */
+  /** Data original na agenda fixa; null para visita avulsa. */
+  plannedDate: IsoDate | null
+  /** Horário marcado, se houver. */
+  time: string | null
+  /** Visita avulsa (fora da agenda fixa). */
   extra: boolean
+  /** Veio de outro dia (remarcada). */
+  moved: boolean
 }
+
+const ACTIVE = (v: Visit) => v.status !== 'canceled'
 
 /**
- * Monta o roteiro do dia: piscinas com visita fixa naquele dia da semana (de clientes ativos)
- * mais visitas avulsas já registradas na data. Ordenado pela ordem de rota.
+ * Visitas de um dia: as registradas para a data (agendadas, avulsas, remarcadas para cá)
+ * mais as da agenda fixa (semanal, quinzenal, mensal) de clientes ativos que ainda não têm
+ * registro. Uma ocorrência remarcada ou desmarcada some da data original.
  */
 export function buildAgenda(date: IsoDate, clients: Client[], pools: Pool[], visits: Visit[]): AgendaItem[] {
-  const weekday = weekdayOf(date)
   const clientById = new Map(clients.map((c) => [c.id, c]))
-  const visitByPool = new Map(visits.filter((v) => v.date === date).map((v) => [v.poolId, v]))
+  const poolById = new Map(pools.map((p) => [p.id, p]))
   const items: AgendaItem[] = []
+  const handled = new Set<string>()
 
-  for (const pool of pools) {
-    const client = clientById.get(pool.clientId)
-    if (!client) continue
-    const visit = visitByPool.get(pool.id) ?? null
-    const scheduled = client.active && pool.visitDays.includes(weekday)
-    if (scheduled || visit) items.push({ pool, client, visit, extra: !scheduled })
+  for (const v of visits) {
+    if (v.plannedDate === date || v.date === date) handled.add(v.poolId)
+    if (v.date !== date || !ACTIVE(v)) continue
+    const pool = poolById.get(v.poolId)
+    const client = pool && clientById.get(pool.clientId)
+    if (!pool || !client) continue
+    items.push({
+      key: v.id, pool, client, visit: v, plannedDate: v.plannedDate, time: v.time,
+      extra: v.plannedDate === null, moved: v.plannedDate !== null && v.plannedDate !== date,
+    })
   }
 
-  return items.sort((a, b) => a.pool.routeOrder - b.pool.routeOrder || a.client.name.localeCompare(b.client.name, 'pt-BR'))
+  for (const pool of pools) {
+    if (handled.has(pool.id)) continue
+    const client = clientById.get(pool.clientId)
+    if (!client?.active || !occursOn(pool, date)) continue
+    items.push({ key: `plan:${pool.id}`, pool, client, visit: null, plannedDate: date, time: pool.preferredTime, extra: false, moved: false })
+  }
+
+  return items.sort(
+    (a, b) => a.pool.routeOrder - b.pool.routeOrder || a.client.name.localeCompare(b.client.name, 'pt-BR'),
+  )
 }
+
+/** Ainda por fazer: sem registro ou só agendada. */
+export const isPending = (item: AgendaItem) => !item.visit || item.visit.status === 'scheduled'
 
 export interface AgendaProgress {
   total: number
@@ -46,7 +74,7 @@ export function agendaProgress(items: AgendaItem[]): AgendaProgress {
 /** Link do Google Maps com o roteiro (origem = localização atual do aparelho). */
 export function routeUrl(items: AgendaItem[]): string | null {
   const stops = items
-    .filter((i) => i.visit?.status !== 'done' && i.visit?.status !== 'skipped')
+    .filter(isPending)
     .map((i) =>
       i.client.lat !== null && i.client.lng !== null
         ? `${i.client.lat},${i.client.lng}`
@@ -61,17 +89,16 @@ export function routeUrl(items: AgendaItem[]): string | null {
   return `https://www.google.com/maps/dir/?${params.toString()}`
 }
 
-const STATE_RANK = { done: 0, in_progress: 1, skipped: 2 } as const
-
 /**
  * Ordem real do dia: primeiro o que já foi feito (pela hora de chegada), depois a visita em
  * andamento, e então as pendentes na ordem da rota. É a ordem em que o piscineiro de fato chega.
  */
 export function arrangeByProgress(items: AgendaItem[]): AgendaItem[] {
+  const rank = (i: AgendaItem) => (i.visit?.status === 'done' ? 0 : 1)
   const started = items
-    .filter((i) => i.visit && i.visit.status !== 'skipped')
-    .sort((a, b) => STATE_RANK[a.visit!.status] - STATE_RANK[b.visit!.status] || a.visit!.checkInAt.localeCompare(b.visit!.checkInAt))
-  const pending = items.filter((i) => !i.visit)
+    .filter((i) => i.visit?.status === 'done' || i.visit?.status === 'in_progress')
+    .sort((a, b) => rank(a) - rank(b) || (a.visit!.checkInAt ?? '').localeCompare(b.visit!.checkInAt ?? ''))
+  const pending = items.filter(isPending)
   const skipped = items.filter((i) => i.visit?.status === 'skipped')
   return [...started, ...pending, ...skipped]
 }

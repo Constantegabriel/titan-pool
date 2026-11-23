@@ -122,3 +122,12 @@ describe('ordem do dia', () => {
     expect(changed.map((p) => [p.id, p.routeOrder])).toEqual([['c', 2], ['a', 5], ['b', 9]])
   })
 })
+
+import { mergeByTime } from './route'
+
+describe('visitas com horário', () => {
+  it('encaixa cada horário marcado na posição certa do dia', () => {
+    const untimed = [{ item: 'a', arrival: 490 }, { item: 'b', arrival: 545 }, { item: 'c', arrival: 600 }]
+    expect(mergeByTime(untimed, [{ item: 'T15', time: 930 }, { item: 'T9', time: 540 }])).toEqual(['a', 'T9', 'b', 'c', 'T15'])
+  })
+})

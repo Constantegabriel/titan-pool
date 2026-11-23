@@ -40,7 +40,16 @@ export interface Pool {
   sanitizer: Sanitizer
   equipment: string
   accessNotes: string
+  /** Como as visitas fixas se repetem. */
+  recurrence: Recurrence
+  /** Dias da semana (semanal/quinzenal). */
   visitDays: Weekday[]
+  /** Dias do mês (mensal); 31 vira o último dia em meses mais curtos. */
+  monthDays: number[]
+  /** Semana de referência da recorrência quinzenal. */
+  anchorDate: IsoDate | null
+  /** Horário combinado com o cliente (HH:MM), se houver. */
+  preferredTime: string | null
   /** Posição no roteiro do dia (menor primeiro). */
   routeOrder: number
   /** Duração do serviço; null usa o padrão dos ajustes. */
@@ -62,15 +71,23 @@ export interface ProductUsage {
   unit: 'g' | 'kg' | 'ml' | 'L' | 'un'
 }
 
-export type VisitStatus = 'in_progress' | 'done' | 'skipped'
+export type Recurrence = 'none' | 'weekly' | 'biweekly' | 'monthly'
+
+/** scheduled = agendada; canceled = desmarcada (some da agenda, fica no histórico). */
+export type VisitStatus = 'scheduled' | 'in_progress' | 'done' | 'skipped' | 'canceled'
 
 export interface Visit {
   id: Id
   poolId: Id
   clientId: Id
+  /** Data em que a visita acontece (ou vai acontecer). */
   date: IsoDate
+  /** Data original da recorrência que esta visita representa; null para visita avulsa. */
+  plannedDate: IsoDate | null
+  /** Horário marcado (HH:MM), se houver. */
+  time: string | null
   status: VisitStatus
-  checkInAt: string
+  checkInAt: string | null
   completedAt: string | null
   readings: Readings
   tasks: string[]

@@ -6,10 +6,13 @@ financeiro e documentos em PDF.
 
 ## Funções
 
-- **Roteiro do dia** — 1º, 2º, 3º cliente na ordem de chegada, com horário previsto de chegada e
-  saída, distância e tempo entre paradas, término do dia. Botão *Otimizar* calcula a melhor ordem;
-  *Ajustar* permite mudar à mão. As previsões se recalculam sozinhas ao longo do dia. Navegação
-  por Google Maps ou Waze até o próximo cliente.
+- **Agenda** — visitas fixas por piscina (toda semana, a cada 2 semanas ou em dias do mês, com
+  horário combinado opcional) e visitas avulsas agendadas. Cada visita pode ser remarcada, pulada
+  ou desmarcada só naquela data. Semana com a quantidade de visitas por dia.
+- **Dia organizado** — mapa com as paradas numeradas e o trajeto, 1ª, 2ª, 3ª visita na ordem de
+  chegada com horários previstos (respeitando horários combinados), distância e tempo entre
+  paradas e término do dia. *Otimizar* calcula a melhor ordem; *Ajustar* muda à mão. Navegação por
+  Google Maps ou Waze.
 - **Clientes e piscinas** — localização pelo GPS ("Estou no local") ou busca do endereço, dias de
   visita, tempo de serviço, observações de acesso.
 - **Visita** — análise da água com sugestão de dosagem, checklist, produtos, fotos, relatório
@@ -42,7 +45,7 @@ Em *Mais* há backup/restauração em JSON e dados de exemplo.
 ## Arquitetura
 
 ```
-src/domain/     regras puras e testadas: roteiro (distâncias, otimização, previsões), química da
+src/domain/     regras puras e testadas: agenda e recorrência, roteiro (distâncias, otimização, previsões), química da
                 água, agenda, cobrança, financeiro, mensagens de WhatsApp
 src/data/       interface Repository + LocalRepository (IndexedDB) + SupabaseRepository
 src/hooks/      React Query: cache, invalidação e mutações
@@ -67,5 +70,6 @@ Por que escala:
 
 `npm run test` (vitest) · `npm run typecheck` · `npm run lint` (oxlint) · `npm run build`
 
-Busca de endereço usa o OpenStreetMap (Nominatim), com uso leve e pontual. Sugestões de dosagem
+Mapa e busca de endereço usam o OpenStreetMap (uso leve); com muitos usuários, troque `TILE_URL` em
+`src/components/route-map.tsx` e o geocoder em `src/lib/geo.ts` por um provedor com chave. Sugestões de dosagem
 são estimativas; o rótulo do produto prevalece.

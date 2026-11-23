@@ -47,7 +47,7 @@ function LoginScreen() {
 
   return (
     <div className="mx-auto flex min-h-svh max-w-sm flex-col justify-center px-4">
-      <div className="mb-6 flex items-center gap-2 text-cyan-700">
+      <div className="mb-6 flex items-center gap-2 text-brand-700">
         <Droplets className="size-8" aria-hidden />
         <span className="text-2xl font-bold tracking-tight text-slate-900">Titan Pool</span>
       </div>
@@ -68,7 +68,7 @@ function LoginScreen() {
             />
           </Field>
           {message && (
-            <p role="status" className={message.tone === 'error' ? 'text-sm text-rose-700' : 'text-sm text-cyan-800'}>
+            <p role="status" className={message.tone === 'error' ? 'text-sm text-rose-700' : 'text-sm text-brand-800'}>
               {message.text}
             </p>
           )}
@@ -79,7 +79,7 @@ function LoginScreen() {
       </Card>
       <button
         type="button"
-        className="mt-4 text-sm font-medium text-cyan-700"
+        className="mt-4 text-sm font-medium text-brand-700"
         onClick={() => {
           setMode(mode === 'signin' ? 'signup' : 'signin')
           setMessage(null)

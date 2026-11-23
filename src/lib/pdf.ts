@@ -11,7 +11,7 @@ import type { Charge, Client, Pool, Purchase, Settings, Supplier, Transaction, V
  * sob demanda, então não pesa na abertura do app.
  */
 
-const BRAND: [number, number, number] = [14, 116, 144]
+const BRAND: [number, number, number] = [31, 98, 232]
 const MUTED: [number, number, number] = [100, 116, 139]
 const M = 16
 

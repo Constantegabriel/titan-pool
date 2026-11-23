@@ -66,11 +66,11 @@ export function LocationPicker({ value, address, onChange }: { value: GeoPoint |
       </div>
       {error && <p className="mt-2 text-sm text-rose-700">{error}</p>}
       {results && (
-        <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-xl ring-1 ring-slate-200">
+        <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
           {results.map((r) => (
             <li key={`${r.lat},${r.lng}`}>
               <button type="button" className="flex w-full items-start gap-2 px-3 py-2.5 text-left text-sm hover:bg-slate-50" onClick={() => { onChange(r); setResults(null) }}>
-                <MapPin className="mt-0.5 size-4 shrink-0 text-cyan-700" aria-hidden /> {r.label}
+                <MapPin className="mt-0.5 size-4 shrink-0 text-brand-700" aria-hidden /> {r.label}
               </button>
             </li>
           ))}
