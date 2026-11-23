@@ -25,7 +25,8 @@ export interface Repository {
   deletePool(id: Id): Promise<void>
 
   getVisit(id: Id): Promise<Visit | null>
-  listVisitsByDate(date: IsoDate): Promise<Visit[]>
+  /** Visitas cuja data ou data planejada cai no intervalo (inclusive). */
+  listVisitsInRange(from: IsoDate, to: IsoDate): Promise<Visit[]>
   listVisitsByClient(clientId: Id, limit: number): Promise<Visit[]>
   saveVisit(visit: Visit): Promise<Visit>
   deleteVisit(id: Id): Promise<void>

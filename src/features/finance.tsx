@@ -75,7 +75,7 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
 
   return (
     <>
-      <section className={cn('rounded-3xl p-4 text-white shadow-lg', r.profitCents >= 0 ? 'bg-gradient-to-br from-cyan-700 to-sky-800 shadow-cyan-900/20' : 'bg-gradient-to-br from-rose-700 to-rose-800 shadow-rose-900/20')}>
+      <section className={cn('rounded-3xl p-4 text-white shadow-lg', r.profitCents >= 0 ? 'bg-gradient-to-br from-brand-700 to-brand-700 shadow-brand-900/20' : 'bg-gradient-to-br from-rose-700 to-rose-800 shadow-rose-900/20')}>
         <p className="text-sm text-white/80">Lucro do mês (recebido − gasto)</p>
         <p className="mt-1 text-3xl font-bold tabular-nums">{formatMoney(r.profitCents)}</p>
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -90,7 +90,7 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
         </div>
       </section>
 
-      <button type="button" onClick={() => onTab('mensalidades')} className="mt-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-slate-200/70">
+      <button type="button" onClick={() => onTab('mensalidades')} className="mt-3 flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left border border-slate-100 shadow-card">
         <span className="text-sm text-slate-600">A receber neste mês</span>
         <span className="font-semibold tabular-nums text-amber-700">{formatMoney(receivable)}</span>
       </button>
@@ -101,7 +101,7 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
           {r.expensesByCategory.map((c) => (
             <div key={c.category}>
               <div className="flex justify-between text-sm"><span>{c.category}</span><span className="font-medium tabular-nums">{formatMoney(c.cents)}</span></div>
-              <div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-cyan-600" style={{ width: `${(c.cents / maxCat) * 100}%` }} /></div>
+              <div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-600" style={{ width: `${(c.cents / maxCat) * 100}%` }} /></div>
             </div>
           ))}
         </Card>
@@ -151,8 +151,8 @@ function Fees({ period, clients, charges }: { period: string; clients: Client[];
         <MiniStat label="Atrasado" value={formatMoney(sum('overdue'))} className={sum('overdue') ? 'text-rose-700' : undefined} />
       </div>
       {missing > 0 && (
-        <Card className="mb-4 bg-cyan-50 ring-cyan-200">
-          <p className="text-sm text-cyan-950">{missing} cliente(s) ativo(s) ainda sem mensalidade em {formatPeriod(period)}.</p>
+        <Card className="mb-4 bg-brand-50 ring-brand-200">
+          <p className="text-sm text-brand-950">{missing} cliente(s) ativo(s) ainda sem mensalidade em {formatPeriod(period)}.</p>
           <Button className="mt-3 w-full" loading={generate.isPending} onClick={() => generate.mutate({ period, clients })}>Gerar mensalidades do mês</Button>
         </Card>
       )}
@@ -167,7 +167,7 @@ function Fees({ period, clients, charges }: { period: string; clients: Client[];
 
 function MiniStat({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <div className="rounded-2xl bg-white px-2 py-2.5 shadow-sm ring-1 ring-slate-200/70">
+    <div className="rounded-2xl bg-white px-2 py-2.5 border border-slate-100 shadow-card">
       <p className="text-xs text-slate-500">{label}</p>
       <p className={cn('text-sm font-bold tabular-nums', className)}>{value}</p>
     </div>
@@ -309,7 +309,7 @@ function TransactionForm({ initial, isNew, period }: { initial: Transaction; isN
             </Field>
           </div>
           <label className="flex items-center gap-3 text-sm font-medium">
-            <input type="checkbox" className="size-5 accent-cyan-700" checked={t.paid} onChange={(e) => set('paid', e.target.checked)} />
+            <input type="checkbox" className="size-5 accent-brand-700" checked={t.paid} onChange={(e) => set('paid', e.target.checked)} />
             {t.kind === 'expense' ? 'Já foi pago' : 'Já recebi'}
           </label>
           {t.purchaseId && <p className="text-xs text-slate-500">Lançamento criado por um pedido de compra. <Link className="underline" to={`/compras/${t.purchaseId}`}>Ver pedido</Link></p>}

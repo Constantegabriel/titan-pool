@@ -33,7 +33,15 @@ function openDb(): Promise<IDBDatabase> {
 /** Registros antigos ganham os campos novos com valores padrão. */
 const MIGRATE: Partial<{ [N in Name]: (row: Collections[N]) => Collections[N] }> = {
   clients: (c) => ({ ...c, lat: c.lat ?? null, lng: c.lng ?? null }),
-  pools: (p) => ({ ...p, serviceMinutes: p.serviceMinutes ?? null }),
+  pools: (p) => ({
+    ...p,
+    serviceMinutes: p.serviceMinutes ?? null,
+    recurrence: p.recurrence ?? (p.visitDays?.length ? 'weekly' : 'none'),
+    monthDays: p.monthDays ?? [],
+    anchorDate: p.anchorDate ?? null,
+    preferredTime: p.preferredTime ?? null,
+  }),
+  visits: (v) => ({ ...v, plannedDate: v.plannedDate ?? null, time: v.time ?? null }),
 }
 
 export class LocalRepository implements Repository {
@@ -112,7 +120,8 @@ export class LocalRepository implements Repository {
   }
 
   getVisit = async (id: Id) => (await this.read('visits')).find((v) => v.id === id) ?? null
-  listVisitsByDate = async (date: string) => (await this.read('visits')).filter((v) => v.date === date)
+  listVisitsInRange = async (from: string, to: string) =>
+    (await this.read('visits')).filter((v) => (v.date >= from && v.date <= to) || (v.plannedDate !== null && v.plannedDate >= from && v.plannedDate <= to))
   async listVisitsByClient(clientId: Id, limit: number) {
     return (await this.read('visits')).filter((v) => v.clientId === clientId).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit)
   }

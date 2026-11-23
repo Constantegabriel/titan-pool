@@ -221,7 +221,7 @@ function PurchaseEditor({ initial, persisted }: { initial: Purchase; persisted: 
             {suppliers.data!.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </Select>
         </Field>
-        {suppliers.data!.length === 0 && <Link to="/mais/fornecedores/novo" className="block text-sm font-medium text-cyan-700">+ Cadastrar fornecedor</Link>}
+        {suppliers.data!.length === 0 && <Link to="/mais/fornecedores/novo" className="block text-sm font-medium text-brand-700">+ Cadastrar fornecedor</Link>}
         {supplier && !supplier.phone && <p className="text-sm text-amber-800">Este fornecedor está sem WhatsApp cadastrado: você escolherá o contato ao enviar.</p>}
       </Card>
 
@@ -232,8 +232,8 @@ function PurchaseEditor({ initial, persisted }: { initial: Purchase; persisted: 
       <Textarea className="min-h-16" disabled={!editable} placeholder="Ex.: entregar na casa do cliente até sexta" value={p.notes} onChange={(e) => update({ notes: e.target.value })} />
 
       {p.clientId && (
-        <label className="mt-3 flex items-start gap-3 rounded-xl bg-white p-3 text-sm ring-1 ring-slate-200">
-          <input type="checkbox" className="mt-0.5 size-5 accent-cyan-700" disabled={p.status === 'received'} checked={p.billToClient} onChange={(e) => update({ billToClient: e.target.checked })} />
+        <label className="mt-3 flex items-start gap-3 rounded-xl bg-white p-3 text-sm border border-slate-200">
+          <input type="checkbox" className="mt-0.5 size-5 accent-brand-700" disabled={p.status === 'received'} checked={p.billToClient} onChange={(e) => update({ billToClient: e.target.checked })} />
           <span><span className="font-medium">Repassar o valor ao cliente</span><br /><span className="text-slate-500">Ao receber, lança uma receita a receber de {client?.name}.</span></span>
         </label>
       )}
@@ -290,7 +290,7 @@ function ReceivePanel({ suggested, onCancel, onConfirm, busy }: { suggested: num
   const [value, setValue] = useState(suggested !== null ? centsToInput(suggested) : '')
   const cents = parseMoney(value)
   return (
-    <Card className="space-y-3 ring-2 ring-cyan-600">
+    <Card className="space-y-3 ring-2 ring-brand-600">
       <Field label="Valor pago (R$)" hint="Vai para o financeiro como despesa de produtos">
         <Input inputMode="decimal" autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="0,00" />
       </Field>
@@ -329,7 +329,7 @@ function LinesEditor({ lines, editable, showPrices, catalog, onChange }: {
             <li key={`${l.name}-${i}`}>
               <Card className="p-3">
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-cyan-50 text-xs font-semibold text-cyan-800">{i + 1}</span>
+                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800">{i + 1}</span>
                   <p className="min-w-0 flex-1 font-medium">{l.name}</p>
                   {editable && (
                     <button type="button" aria-label={`Remover ${l.name}`} className="-mt-1 -mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" onClick={() => onChange(lines.filter((_, j) => j !== i))}>
@@ -338,7 +338,7 @@ function LinesEditor({ lines, editable, showPrices, catalog, onChange }: {
                   )}
                 </div>
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="flex items-center rounded-xl ring-1 ring-slate-300">
+                  <div className="flex items-center rounded-xl border border-slate-200">
                     <button type="button" aria-label="Diminuir" disabled={!editable || l.quantity <= 1} className="flex size-10 items-center justify-center text-slate-600 disabled:opacity-30" onClick={() => patch(i, { quantity: Math.max(1, l.quantity - 1) })}><Minus className="size-4" /></button>
                     <input
                       aria-label={`Quantidade de ${l.name}`}
@@ -372,7 +372,7 @@ function LinesEditor({ lines, editable, showPrices, catalog, onChange }: {
                   <input
                     aria-label={`Observação de ${l.name}`}
                     placeholder="Observação (marca, tamanho…)"
-                    className="mt-2 w-full border-b border-dashed border-slate-200 bg-transparent py-1 text-sm text-slate-600 placeholder:text-slate-400 focus:border-cyan-600 focus:outline-none"
+                    className="mt-2 w-full border-b border-dashed border-slate-200 bg-transparent py-1 text-sm text-slate-600 placeholder:text-slate-400 focus:border-brand-600 focus:outline-none"
                     value={l.note}
                     onChange={(e) => patch(i, { note: e.target.value })}
                   />
@@ -392,14 +392,14 @@ function LinesEditor({ lines, editable, showPrices, catalog, onChange }: {
           {suggestions.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {suggestions.map((s) => (
-                <button key={s.id} type="button" onClick={() => add(s.name, s.unit, s.lastPriceCents)} className="rounded-full bg-cyan-50 px-3 py-1.5 text-sm text-cyan-900 ring-1 ring-cyan-200 hover:bg-cyan-100">
+                <button key={s.id} type="button" onClick={() => add(s.name, s.unit, s.lastPriceCents)} className="rounded-full bg-brand-50 px-3 py-1.5 text-sm text-brand-900 ring-1 ring-brand-200 hover:bg-brand-100">
                   + {s.name}
                 </button>
               ))}
             </div>
           )}
           {!pricing && lines.length > 0 && (
-            <button type="button" className="text-sm font-medium text-cyan-700" onClick={() => setPricing(true)}>Informar preços</button>
+            <button type="button" className="text-sm font-medium text-brand-700" onClick={() => setPricing(true)}>Informar preços</button>
           )}
         </Card>
       )}

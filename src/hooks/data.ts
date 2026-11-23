@@ -7,7 +7,7 @@ export const keys = {
   clients: ['clients'] as const,
   pools: ['pools'] as const,
   visit: (id: Id) => ['visit', id] as const,
-  visitsByDate: (date: IsoDate) => ['visits', 'date', date] as const,
+  visitsInRange: (from: IsoDate, to: IsoDate) => ['visits', 'range', from, to] as const,
   visitsByClient: (clientId: Id) => ['visits', 'client', clientId] as const,
   chargesByPeriod: (period: Period) => ['charges', 'period', period] as const,
   chargesByClient: (clientId: Id) => ['charges', 'client', clientId] as const,
@@ -23,8 +23,9 @@ export const useClients = () => useQuery({ queryKey: keys.clients, queryFn: repo
 export const usePools = () => useQuery({ queryKey: keys.pools, queryFn: repository.listPools })
 
 export const useVisit = (id: Id) => useQuery({ queryKey: keys.visit(id), queryFn: () => repository.getVisit(id) })
-export const useVisitsByDate = (date: IsoDate) =>
-  useQuery({ queryKey: keys.visitsByDate(date), queryFn: () => repository.listVisitsByDate(date) })
+export const useVisitsInRange = (from: IsoDate, to: IsoDate) =>
+  useQuery({ queryKey: keys.visitsInRange(from, to), queryFn: () => repository.listVisitsInRange(from, to) })
+export const useVisitsByDate = (date: IsoDate) => useVisitsInRange(date, date)
 export const useVisitsByClient = (clientId: Id) =>
   useQuery({ queryKey: keys.visitsByClient(clientId), queryFn: () => repository.listVisitsByClient(clientId, 20) })
 
@@ -78,10 +79,13 @@ export function useDeletePool() {
   })
 }
 
-export function emptyVisit(pool: Pool, date: IsoDate, status: Visit['status'] = 'in_progress'): Visit {
+/** Novo registro de visita para uma piscina. */
+export function newVisit(pool: Pool, date: IsoDate, opts: { status?: Visit['status']; plannedDate?: IsoDate | null; time?: string | null } = {}): Visit {
+  const status = opts.status ?? 'in_progress'
   return {
-    id: newId(), poolId: pool.id, clientId: pool.clientId, date, status, checkInAt: nowIso(),
-    completedAt: status === 'in_progress' ? null : nowIso(),
+    id: newId(), poolId: pool.id, clientId: pool.clientId, date, plannedDate: opts.plannedDate ?? null, time: opts.time ?? null, status,
+    checkInAt: status === 'in_progress' ? nowIso() : null,
+    completedAt: status === 'skipped' ? nowIso() : null,
     readings: { ph: null, chlorine: null, alkalinity: null }, tasks: [], products: [], notes: '', photos: [],
   }
 }

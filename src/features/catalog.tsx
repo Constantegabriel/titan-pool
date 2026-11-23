@@ -66,7 +66,7 @@ function EditRow({ item, onDone }: { item: CatalogItem; onDone: (next: CatalogIt
   const [unit, setUnit] = useState(item.unit)
   const [price, setPrice] = useState(item.lastPriceCents !== null ? centsToInput(item.lastPriceCents) : '')
   return (
-    <li className="space-y-2 bg-cyan-50/50 px-4 py-3">
+    <li className="space-y-2 bg-brand-50/50 px-4 py-3">
       <Input aria-label="Nome" value={name} onChange={(e) => setName(e.target.value)} />
       <div className="grid grid-cols-[6rem_1fr] gap-2">
         <Select aria-label="Unidade" value={unit} onChange={(e) => setUnit(e.target.value as ItemUnit)}>{ITEM_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>

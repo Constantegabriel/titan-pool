@@ -87,8 +87,9 @@ export class SupabaseRepository implements Repository {
     const [row] = await this.rows(this.sb.from('visits').select('*').eq('id', id).limit(1))
     return row ? rowToVisit(row) : null
   }
-  async listVisitsByDate(date: string) {
-    return (await this.rows(this.sb.from('visits').select('*').eq('date', date))).map(rowToVisit)
+  async listVisitsInRange(from: string, to: string) {
+    const filter = `and(date.gte.${from},date.lte.${to}),and(planned_date.gte.${from},planned_date.lte.${to})`
+    return (await this.rows(this.sb.from('visits').select('*').or(filter))).map(rowToVisit)
   }
   async listVisitsByClient(clientId: Id, limit: number) {
     return (await this.rows(this.sb.from('visits').select('*').eq('client_id', clientId).order('date', { ascending: false }).limit(limit))).map(rowToVisit)
@@ -162,8 +163,11 @@ export class SupabaseRepository implements Repository {
 
   async importAll(s: Snapshot) {
     await this.upsert('clients', s.clients.map((c) => toRow({ ...c, lat: c.lat ?? null, lng: c.lng ?? null })))
-    await this.upsert('pools', s.pools.map((p) => toRow({ ...p, serviceMinutes: p.serviceMinutes ?? null })))
-    await this.upsert('visits', s.visits.map(visitToRow))
+    await this.upsert('pools', s.pools.map((p) => toRow({
+      ...p, serviceMinutes: p.serviceMinutes ?? null, recurrence: p.recurrence ?? (p.visitDays.length ? 'weekly' : 'none'),
+      monthDays: p.monthDays ?? [], anchorDate: p.anchorDate ?? null, preferredTime: p.preferredTime ?? null,
+    })))
+    await this.upsert('visits', s.visits.map((v) => visitToRow({ ...v, plannedDate: v.plannedDate ?? null, time: v.time ?? null })))
     await this.upsert('charges', s.charges.map(toRow))
     await this.upsert('suppliers', (s.suppliers ?? []).map(toRow))
     await this.upsert('catalog_items', (s.catalog ?? []).map(toRow))

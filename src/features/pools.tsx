@@ -1,10 +1,12 @@
 import { Trash2 } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, ErrorState, Field, Input, Loading, PageHeader, Select, Textarea } from '@/components/ui'
+import { RecurrenceEditor } from '@/components/recurrence-editor'
+import { Button, Card, ErrorState, Field, Input, Loading, PageHeader, SectionTitle, Select, Textarea } from '@/components/ui'
 import { newId, nowIso } from '@/data'
-import { WEEKDAY_SHORT } from '@/domain/dates'
-import type { Pool, Weekday } from '@/domain/types'
+import { today } from '@/domain/dates'
+import { hasRecurrence } from '@/domain/recurrence'
+import type { Pool } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { useClients, useDeletePool, usePools, useSavePool } from '@/hooks/data'
 
@@ -21,7 +23,8 @@ export function PoolFormPage() {
   const nextOrder = Math.max(0, ...(pools.data ?? []).map((p) => p.routeOrder)) + 1
   const initial: Pool = existing ?? {
     id: newId(), clientId: client.id, name: 'Principal', volumeLiters: 0, type: 'vinil', sanitizer: 'cloro',
-    equipment: '', accessNotes: '', visitDays: [], routeOrder: nextOrder, serviceMinutes: null, createdAt: nowIso(),
+    equipment: '', accessNotes: '', recurrence: 'weekly', visitDays: [], monthDays: [], anchorDate: today(), preferredTime: null,
+    routeOrder: nextOrder, serviceMinutes: null, createdAt: nowIso(),
   }
   return <PoolForm initial={initial} clientName={client.name} isNew={!existing} />
 }
@@ -34,12 +37,12 @@ function PoolForm({ initial, clientName, isNew }: { initial: Pool; clientName: s
   const set = <K extends keyof Pool>(key: K, value: Pool[K]) => setPool((p) => ({ ...p, [key]: value }))
   const back = `/clientes/${pool.clientId}`
 
-  const toggleDay = (day: Weekday) =>
-    set('visitDays', pool.visitDays.includes(day) ? pool.visitDays.filter((d) => d !== day) : [...pool.visitDays, day].sort())
+  const [fixed, setFixed] = useState(initial.recurrence !== 'none' || isNew)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    await save.mutateAsync({ ...pool, name: pool.name.trim() || 'Principal' })
+    const recurrence = fixed && hasRecurrence(pool) ? pool.recurrence : 'none'
+    await save.mutateAsync({ ...pool, recurrence, anchorDate: pool.anchorDate ?? today(), name: pool.name.trim() || 'Principal' })
     navigate(back, { replace: true })
   }
 
@@ -76,26 +79,25 @@ function PoolForm({ initial, clientName, isNew }: { initial: Pool; clientName: s
             </Field>
           </div>
         </Card>
+        <SectionTitle>Agenda fixa</SectionTitle>
         <Card className="space-y-4">
-          <fieldset>
-            <legend className="mb-2 text-sm font-medium text-slate-700">Dias de visita</legend>
-            <div className="grid grid-cols-7 gap-1.5">
-              {WEEKDAY_SHORT.map((label, day) => {
-                const active = pool.visitDays.includes(day as Weekday)
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleDay(day as Weekday)}
-                    className={cn('h-11 rounded-xl text-sm font-medium ring-1', active ? 'bg-cyan-700 text-white ring-cyan-700' : 'bg-white text-slate-700 ring-slate-300')}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
-          </fieldset>
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-slate-200/50 p-1" role="radiogroup" aria-label="Visita fixa">
+            {[{ v: true, l: 'Tem visita fixa' }, { v: false, l: 'Só avulsa' }].map((o) => (
+              <button key={o.l} type="button" role="radio" aria-checked={fixed === o.v} onClick={() => setFixed(o.v)}
+                className={cn('h-9 rounded-xl text-[13px] font-semibold', fixed === o.v ? 'bg-white text-brand-700 shadow-card' : 'text-slate-500')}>
+                {o.l}
+              </button>
+            ))}
+          </div>
+          {fixed ? (
+            <RecurrenceEditor value={pool} onChange={(r) => setPool((p) => ({ ...p, ...r }))} />
+          ) : (
+            <p className="text-sm text-slate-500">Sem dias fixos: agende visitas avulsas pela agenda quando precisar.</p>
+          )}
+        </Card>
+
+        <SectionTitle>Rotina</SectionTitle>
+        <Card className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Tempo de serviço (min)" hint="Vazio = padrão dos ajustes">
               <Input type="number" inputMode="numeric" min={5} max={600} step={5} value={pool.serviceMinutes ?? ''} onChange={(e) => set('serviceMinutes', e.target.value ? Number(e.target.value) : null)} />

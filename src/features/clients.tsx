@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin, Pencil, Phone, Plus, Search, ShoppingCart, Trash2, Users, Waves } from 'lucide-react'
+import { CalendarPlus, ChevronRight, MapPin, Pencil, Phone, Plus, Repeat, Search, ShoppingCart, Trash2, Users, Waves } from 'lucide-react'
 import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LocationPicker } from '@/components/location-picker'
@@ -7,10 +7,12 @@ import {
 } from '@/components/ui'
 import { newId, nowIso } from '@/data'
 import { chargeState } from '@/domain/billing'
-import { WEEKDAY_SHORT, parseIsoDate, today } from '@/domain/dates'
+import { parseIsoDate, today } from '@/domain/dates'
 import { centsToInput, formatLiters, formatMoney, formatPeriod, parseMoney, whatsappLink } from '@/domain/format'
 import type { Client } from '@/domain/types'
-import { emptyVisit, useChargesByClient, useClients, useDeleteClient, usePools, useSaveClient, useSaveVisit, useVisitsByClient, useVisitsByDate } from '@/hooks/data'
+import { useChargesByClient, useClients, useDeleteClient, usePools, useSaveClient, useVisitsByClient } from '@/hooks/data'
+import { describeRecurrence, hasRecurrence, nextOccurrence } from '@/domain/recurrence'
+import type { Pool } from '@/domain/types'
 
 const normalize = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
 
@@ -49,7 +51,7 @@ export function ClientsPage() {
             <Search className="pointer-events-none absolute top-3 left-3 size-5 text-slate-400" aria-hidden />
             <Input className="pl-10" placeholder="Buscar por nome, bairro ou telefone" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar clientes" />
           </div>
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card">
             {filtered.map((c) => (
               <li key={c.id}>
                 <Link to={`/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
@@ -136,7 +138,7 @@ function ClientForm({ initial, isNew }: { initial: Client; isNew: boolean }) {
             <Textarea value={client.notes} onChange={(e) => set('notes', e.target.value)} />
           </Field>
           <label className="flex items-center gap-3 text-sm font-medium">
-            <input type="checkbox" className="size-5 accent-cyan-700" checked={client.active} onChange={(e) => set('active', e.target.checked)} />
+            <input type="checkbox" className="size-5 accent-brand-700" checked={client.active} onChange={(e) => set('active', e.target.checked)} />
             Cliente ativo (entra na agenda e na cobrança)
           </label>
         </Card>
@@ -155,8 +157,6 @@ export function ClientDetailPage() {
   const pools = usePools()
   const visits = useVisitsByClient(clientId)
   const charges = useChargesByClient(clientId)
-  const todays = useVisitsByDate(today())
-  const saveVisit = useSaveVisit()
   const remove = useDeleteClient()
   const navigate = useNavigate()
 
@@ -165,14 +165,8 @@ export function ClientDetailPage() {
   const client = clients.data.find((c) => c.id === clientId)
   if (!client) return <ErrorState error={new Error('Cliente não encontrado.')} />
   const clientPools = (pools.data ?? []).filter((p) => p.clientId === clientId)
+  const history = (visits.data ?? []).filter((v) => v.status === 'done' || v.status === 'skipped' || v.status === 'in_progress')
   const address = [client.address, client.neighborhood].filter(Boolean).join(', ')
-
-  async function visitNow(poolId: string) {
-    const pool = clientPools.find((p) => p.id === poolId)!
-    const existing = todays.data?.find((v) => v.poolId === poolId)
-    const visit = existing ?? (await saveVisit.mutateAsync(emptyVisit(pool, today())))
-    navigate(`/visitas/${visit.id}`)
-  }
 
   async function onDelete() {
     if (!confirm(`Excluir ${client!.name} com piscinas, visitas e cobranças? Esta ação não pode ser desfeita.`)) return
@@ -193,7 +187,7 @@ export function ClientDetailPage() {
         {client.phone && (
           <>
             <ExternalButton href={whatsappLink(client.phone, `Olá, ${client.name.split(' ')[0]}!`)} variant="whatsapp">WhatsApp</ExternalButton>
-            <a href={`tel:${client.phone.replace(/[^\d+]/g, '')}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white text-sm font-medium ring-1 ring-slate-300">
+            <a href={`tel:${client.phone.replace(/[^\d+]/g, '')}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white text-sm font-medium border border-slate-200">
               <Phone className="size-4" aria-hidden /> Ligar
             </a>
           </>
@@ -237,13 +231,11 @@ export function ClientDetailPage() {
                   </div>
                   <ButtonLink to={`/piscinas/${pool.id}/editar`} variant="ghost" size="sm" aria-label={`Editar ${pool.name}`}><Pencil className="size-4" /></ButtonLink>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {pool.visitDays.length ? [...pool.visitDays].sort().map((d) => <Badge key={d} tone="info">{WEEKDAY_SHORT[d]}</Badge>) : <Badge tone="warning">Sem dia fixo</Badge>}
-                </div>
+                <PoolSchedule pool={pool} />
                 {pool.equipment && <p className="mt-2 text-sm text-slate-600">Equipamentos: {pool.equipment}</p>}
-                <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => visitNow(pool.id)} loading={saveVisit.isPending}>
-                  Registrar visita hoje
-                </Button>
+                <ButtonLink to={`/agenda/nova?piscina=${pool.id}`} variant="secondary" size="sm" className="mt-3 w-full">
+                  <CalendarPlus className="size-4" aria-hidden /> Agendar visita
+                </ButtonLink>
               </Card>
             </li>
           ))}
@@ -251,15 +243,15 @@ export function ClientDetailPage() {
       )}
 
       <SectionTitle>Últimas visitas</SectionTitle>
-      {visits.isPending ? <Loading /> : visits.data?.length ? (
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
-          {visits.data.map((v) => (
+      {visits.isPending ? <Loading /> : history.length ? (
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card">
+          {history.map((v) => (
             <li key={v.id}>
               <Link to={`/visitas/${v.id}`} className="flex items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-slate-50">
                 <span>
                   {parseIsoDate(v.date).toLocaleDateString('pt-BR')} · {clientPools.find((p) => p.id === v.poolId)?.name ?? 'Piscina'}
                 </span>
-                {v.status === 'done' ? <Badge tone="success">Concluída</Badge> : v.status === 'skipped' ? <Badge>Não realizada</Badge> : <Badge tone="info">Em andamento</Badge>}
+                {v.status === 'done' ? <Badge tone="success">Concluída</Badge> : v.status === 'skipped' ? <Badge>Não realizada</Badge> : v.status === 'scheduled' ? <Badge tone="info">Agendada</Badge> : v.status === 'canceled' ? <Badge>Desmarcada</Badge> : <Badge tone="info">Em andamento</Badge>}
               </Link>
             </li>
           ))}
@@ -268,7 +260,7 @@ export function ClientDetailPage() {
 
       <SectionTitle>Cobranças</SectionTitle>
       {charges.isPending ? <Loading /> : charges.data?.length ? (
-        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card">
           {charges.data.map((c) => {
             const state = chargeState(c, today())
             return (
@@ -287,5 +279,20 @@ export function ClientDetailPage() {
         <Trash2 className="size-4" aria-hidden /> Excluir cliente
       </Button>
     </>
+  )
+}
+
+function PoolSchedule({ pool }: { pool: Pool }) {
+  if (!hasRecurrence(pool)) return <p className="mt-2 text-sm text-slate-500">Sem agenda fixa · visitas avulsas</p>
+  const next = nextOccurrence(pool, today())
+  return (
+    <div className="mt-2 rounded-xl bg-brand-50/70 px-3 py-2 text-sm">
+      <p className="flex items-center gap-1.5 font-semibold text-brand-800"><Repeat className="size-4" aria-hidden />{describeRecurrence(pool, pool.preferredTime)}</p>
+      {next && (
+        <p className="mt-0.5 text-brand-700/80">
+          Próxima: {next === today() ? 'hoje' : parseIsoDate(next).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+        </p>
+      )}
+    </div>
   )
 }

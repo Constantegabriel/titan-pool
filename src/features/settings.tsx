@@ -14,7 +14,7 @@ function MenuLink({ to, icon, title, hint }: { to: string; icon: ReactNode; titl
   return (
     <li>
       <Link to={to} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700">{icon}</span>
+        <span className="flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">{icon}</span>
         <span className="min-w-0 flex-1">
           <span className="block font-medium">{title}</span>
           <span className="block truncate text-sm text-slate-500">{hint}</span>
@@ -74,7 +74,7 @@ export function MorePage() {
 
       <SectionTitle>Seus dados</SectionTitle>
       <Card className="flex items-start gap-3">
-        {repository.mode === 'cloud' ? <Cloud className="mt-0.5 size-5 text-cyan-700" aria-hidden /> : <HardDrive className="mt-0.5 size-5 text-amber-700" aria-hidden />}
+        {repository.mode === 'cloud' ? <Cloud className="mt-0.5 size-5 text-brand-700" aria-hidden /> : <HardDrive className="mt-0.5 size-5 text-amber-700" aria-hidden />}
         <div className="text-sm">
           <p className="font-semibold">{repository.mode === 'cloud' ? 'Sincronizado na nuvem' : 'Salvos neste aparelho'}</p>
           <p className="text-slate-600">

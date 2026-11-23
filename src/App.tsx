@@ -4,7 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from '@/components/layout'
 import { ButtonLink, EmptyState, Loading } from '@/components/ui'
 import { AuthGate } from '@/features/auth'
-import { TodayPage } from '@/features/today'
+import { AgendaPage } from '@/features/agenda'
 
 // Telas secundárias carregam sob demanda: a primeira abertura baixa só o roteiro do dia.
 const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) =>
@@ -29,6 +29,7 @@ const SettingsPage = page(settings, 'SettingsPage')
 const SuppliersPage = page(suppliers, 'SuppliersPage')
 const SupplierFormPage = page(suppliers, 'SupplierFormPage')
 const CatalogPage = page(() => import('@/features/catalog'), 'CatalogPage')
+const ScheduleVisitPage = page(() => import('@/features/schedule-visit'), 'ScheduleVisitPage')
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
@@ -42,7 +43,8 @@ export default function App() {
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route element={<Layout />}>
-                <Route index element={<TodayPage />} />
+                <Route index element={<AgendaPage />} />
+                <Route path="agenda/nova" element={<ScheduleVisitPage />} />
                 <Route path="clientes" element={<ClientsPage />} />
                 <Route path="clientes/novo" element={<ClientFormPage />} />
                 <Route path="clientes/:clientId" element={<ClientDetailPage />} />
@@ -64,7 +66,7 @@ export default function App() {
                 <Route path="mais/fornecedores/:supplierId" element={<SupplierFormPage />} />
                 <Route path="mais/itens" element={<CatalogPage />} />
                 <Route path="ajustes" element={<Navigate to="/mais" replace />} />
-                <Route path="*" element={<EmptyState icon={null} title="Página não encontrada"><ButtonLink to="/" className="mt-4">Ir para o roteiro</ButtonLink></EmptyState>} />
+                <Route path="*" element={<EmptyState icon={null} title="Página não encontrada"><ButtonLink to="/" className="mt-4">Ir para a agenda</ButtonLink></EmptyState>} />
               </Route>
             </Routes>
           </Suspense>

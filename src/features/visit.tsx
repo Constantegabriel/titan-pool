@@ -8,7 +8,7 @@ import { parseIsoDate } from '@/domain/dates'
 import { whatsappLink } from '@/domain/format'
 import { visitReportMessage } from '@/domain/messages'
 import { type Client, type Pool, type ProductUsage, VISIT_TASKS, type Visit } from '@/domain/types'
-import { useCatalog, useClients, useDeleteVisit, usePools, useSaveVisit, useSettings, useVisit } from '@/hooks/data'
+import { useCatalog, useClients, usePools, useSaveVisit, useSettings, useVisit } from '@/hooks/data'
 import { PdfButton } from '@/components/pdf-button'
 import { loadPdf, slug } from '@/lib/share'
 import { cn } from '@/lib/cn'
@@ -43,7 +43,6 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
     Object.fromEntries(READING_KEYS.map((k) => [k, toText(initial.readings[k])])) as Record<ReadingKey, string>,
   )
   const save = useSaveVisit()
-  const remove = useDeleteVisit()
   const settings = useSettings()
   const navigate = useNavigate()
   const dirty = useRef(false)
@@ -84,7 +83,7 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
   }
 
   const undoSkip = async () => {
-    await remove.mutateAsync(visit.id)
+    await save.mutateAsync({ ...visit, status: 'scheduled', checkInAt: null, completedAt: null })
     navigate(`/?data=${visit.date}`, { replace: true })
   }
 
@@ -122,7 +121,7 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
           <Field label="Motivo (opcional)">
             <Textarea className="min-h-16" placeholder="Ex.: cliente viajando, chuva forte" value={visit.notes} onChange={(e) => update({ notes: e.target.value })} />
           </Field>
-          <Button variant="secondary" onClick={undoSkip} loading={remove.isPending}>
+          <Button variant="secondary" onClick={undoSkip} loading={save.isPending}>
             <Undo2 className="size-4" aria-hidden /> Desfazer e voltar à agenda
           </Button>
         </Card>
@@ -169,7 +168,7 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
           <Card className="space-y-1 py-2">
             {VISIT_TASKS.map((task) => (
               <label key={task} className="flex min-h-11 items-center gap-3 text-sm">
-                <input type="checkbox" className="size-5 accent-cyan-700" checked={visit.tasks.includes(task)} onChange={() => toggleTask(task)} />
+                <input type="checkbox" className="size-5 accent-brand-700" checked={visit.tasks.includes(task)} onChange={() => toggleTask(task)} />
                 {task}
               </label>
             ))}

@@ -12,10 +12,10 @@ const client = (over: Partial<Client> = {}): Client => ({
 })
 const pool = (over: Partial<Pool> = {}): Pool => ({
   id: 'p1', clientId: 'c1', name: 'Principal', volumeLiters: 30000, type: 'vinil', sanitizer: 'cloro',
-  equipment: '', accessNotes: '', visitDays: [1, 4], routeOrder: 1, serviceMinutes: null, createdAt: '', ...over,
+  equipment: '', accessNotes: '', recurrence: 'weekly', visitDays: [1, 4], monthDays: [], anchorDate: null, preferredTime: null, routeOrder: 1, serviceMinutes: null, createdAt: '', ...over,
 })
 const visit = (over: Partial<Visit> = {}): Visit => ({
-  id: 'v1', poolId: 'p1', clientId: 'c1', date: '2026-11-23', status: 'done', checkInAt: '', completedAt: null,
+  id: 'v1', poolId: 'p1', clientId: 'c1', date: '2026-11-23', plannedDate: '2026-11-23', time: null, status: 'done', checkInAt: '', completedAt: null,
   readings: { ph: null, chlorine: null, alkalinity: null }, tasks: [], products: [], notes: '', photos: [], ...over,
 })
 
@@ -63,7 +63,7 @@ describe('agenda', () => {
       pool({ id: 'p3', clientId: 'c3' }),
       pool({ id: 'p4', clientId: 'c2', visitDays: [3], routeOrder: 3 }),
     ]
-    const visits = [visit({ id: 'v4', poolId: 'p4', clientId: 'c2', status: 'in_progress' })]
+    const visits = [visit({ id: 'v4', poolId: 'p4', clientId: 'c2', status: 'in_progress', plannedDate: null })]
     const agenda = buildAgenda('2026-11-23', clients, pools, visits)
     expect(agenda.map((a) => a.pool.id)).toEqual(['p2', 'p1', 'p4'])
     expect(agenda[2].extra).toBe(true)

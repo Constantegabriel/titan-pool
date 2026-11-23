@@ -67,7 +67,7 @@ function SupplierForm({ initial, isNew }: { initial: Supplier; isNew: boolean })
         <div className="mb-4 grid grid-cols-2 gap-2">
           <ButtonLink to={`/compras/nova?fornecedor=${s.id}`}><ShoppingCart className="size-4" aria-hidden /> Novo pedido</ButtonLink>
           {s.phone ? <ExternalButton href={whatsappLink(s.phone, `Olá, ${s.contact || s.name}!`)} variant="whatsapp">WhatsApp</ExternalButton>
-            : <a className="inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm text-slate-400 ring-1 ring-slate-200"><Phone className="size-4" /> Sem número</a>}
+            : <a className="inline-flex h-11 items-center justify-center gap-2 rounded-xl text-sm text-slate-400 border border-slate-200"><Phone className="size-4" /> Sem número</a>}
         </div>
       )}
       <form onSubmit={submit} className="space-y-4">

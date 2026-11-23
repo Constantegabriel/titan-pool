@@ -110,6 +110,8 @@ export interface StopInput {
   startedAt: number | null
   /** Minutos do dia em que terminou. */
   finishedAt: number | null
+  /** Horário marcado com o cliente: não chega antes disso. */
+  notBefore?: number | null
 }
 
 export interface StopPlan {
@@ -160,7 +162,7 @@ export function buildTimeline({ base, dayStart, speedKmh, now, stops }: Timeline
     } else {
       // Se o dia já começou, a próxima saída não pode ser antes de agora.
       const leave = now !== null && now > clock ? now : clock
-      const arrival = leave + travel
+      const arrival = Math.max(leave + travel, stop.notBefore ?? 0)
       const departure = arrival + stop.serviceMinutes
       plans.push({ km, travelMinutes: travel, arrival, departure, actual: false })
       clock = departure
@@ -179,4 +181,19 @@ export function navigationUrl(target: GeoPoint | null, address: string, app: 'go
   }
   const destination = target ? `${target.lat},${target.lng}` : address
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`
+}
+
+/**
+ * Encaixa as visitas com horário marcado na sequência das demais: cada uma entra antes da
+ * primeira parada sem horário cuja chegada prevista é depois do horário combinado.
+ * Assim uma visita das 15h não "puxa" o resto do dia para a tarde.
+ */
+export function mergeByTime<T>(untimed: Array<{ item: T; arrival: number }>, timed: Array<{ item: T; time: number }>): T[] {
+  const queue = [...timed].sort((a, b) => a.time - b.time)
+  const out: T[] = []
+  for (const u of untimed) {
+    while (queue.length && queue[0].time <= u.arrival) out.push(queue.shift()!.item)
+    out.push(u.item)
+  }
+  return [...out, ...queue.map((t) => t.item)]
 }
