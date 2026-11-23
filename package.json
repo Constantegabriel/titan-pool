@@ -1,5 +1,5 @@
 {
-  "name": "piscineiro",
+  "name": "titan-pool",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,6 +15,8 @@
     "@supabase/supabase-js": "^2.119.2",
     "@tanstack/react-query": "^5.108.4",
     "date-fns": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lucide-react": "^1.78.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

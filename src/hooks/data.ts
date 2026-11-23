@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { repository, newId, nowIso } from '@/data'
 import { chargesToCreate } from '@/domain/billing'
-import type { Charge, Client, Id, IsoDate, Period, Pool, Visit } from '@/domain/types'
+import type { CatalogItem, Charge, Client, Id, IsoDate, Period, Pool, Purchase, Settings, Supplier, Transaction, Visit } from '@/domain/types'
 
 export const keys = {
   clients: ['clients'] as const,
@@ -11,6 +11,12 @@ export const keys = {
   visitsByClient: (clientId: Id) => ['visits', 'client', clientId] as const,
   chargesByPeriod: (period: Period) => ['charges', 'period', period] as const,
   chargesByClient: (clientId: Id) => ['charges', 'client', clientId] as const,
+  settings: ['settings'] as const,
+  suppliers: ['suppliers'] as const,
+  catalog: ['catalog'] as const,
+  purchases: ['purchases'] as const,
+  purchase: (id: Id) => ['purchase', id] as const,
+  transactionsByPeriod: (period: Period) => ['transactions', period] as const,
 }
 
 export const useClients = () => useQuery({ queryKey: keys.clients, queryFn: repository.listClients })
@@ -45,6 +51,14 @@ export function useDeleteClient() {
   return useMutation({
     mutationFn: (id: Id) => repository.deleteClient(id),
     onSuccess: () => invalidate('clients', 'pools', 'visits', 'charges'),
+  })
+}
+
+export function useSavePools() {
+  const invalidate = useInvalidate()
+  return useMutation({
+    mutationFn: (pools: Pool[]) => repository.savePools(pools),
+    onSuccess: () => invalidate('pools'),
   })
 }
 
@@ -107,4 +121,61 @@ export function useSaveCharge() {
     mutationFn: (charge: Charge) => repository.saveCharges([charge]),
     onSuccess: () => invalidate('charges'),
   })
+}
+
+export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: repository.getSettings, staleTime: Infinity })
+export function useSaveSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (settings: Settings) => repository.saveSettings(settings),
+    onSuccess: (settings) => qc.setQueryData(keys.settings, settings),
+  })
+}
+
+export const useSuppliers = () => useQuery({ queryKey: keys.suppliers, queryFn: repository.listSuppliers })
+export function useSaveSupplier() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (s: Supplier) => repository.saveSupplier(s), onSuccess: () => invalidate('suppliers') })
+}
+export function useDeleteSupplier() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (id: Id) => repository.deleteSupplier(id), onSuccess: () => invalidate('suppliers', 'purchases', 'purchase') })
+}
+
+export const useCatalog = () => useQuery({ queryKey: keys.catalog, queryFn: repository.listCatalog })
+export function useSaveCatalogItems() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (items: CatalogItem[]) => repository.saveCatalogItems(items), onSuccess: () => invalidate('catalog') })
+}
+export function useDeleteCatalogItem() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (id: Id) => repository.deleteCatalogItem(id), onSuccess: () => invalidate('catalog') })
+}
+
+export const usePurchases = () => useQuery({ queryKey: keys.purchases, queryFn: () => repository.listPurchases(200) })
+export const usePurchase = (id: Id) => useQuery({ queryKey: keys.purchase(id), queryFn: () => repository.getPurchase(id), enabled: Boolean(id) })
+export function useSavePurchase() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: Purchase) => repository.savePurchase(p),
+    onSuccess: (p) => {
+      qc.setQueryData(keys.purchase(p.id), p)
+      return qc.invalidateQueries({ queryKey: keys.purchases })
+    },
+  })
+}
+export function useDeletePurchase() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (id: Id) => repository.deletePurchase(id), onSuccess: () => invalidate('purchases', 'transactions') })
+}
+
+export const useTransactions = (period: Period) =>
+  useQuery({ queryKey: keys.transactionsByPeriod(period), queryFn: () => repository.listTransactionsByPeriod(period) })
+export function useSaveTransaction() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (t: Transaction) => repository.saveTransaction(t), onSuccess: () => invalidate('transactions') })
+}
+export function useDeleteTransaction() {
+  const invalidate = useInvalidate()
+  return useMutation({ mutationFn: (id: Id) => repository.deleteTransaction(id), onSuccess: () => invalidate('transactions') })
 }

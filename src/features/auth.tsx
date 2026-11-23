@@ -49,7 +49,7 @@ function LoginScreen() {
     <div className="mx-auto flex min-h-svh max-w-sm flex-col justify-center px-4">
       <div className="mb-6 flex items-center gap-2 text-cyan-700">
         <Droplets className="size-8" aria-hidden />
-        <span className="text-2xl font-bold tracking-tight text-slate-900">Piscineiro</span>
+        <span className="text-2xl font-bold tracking-tight text-slate-900">Titan Pool</span>
       </div>
       <Card>
         <form onSubmit={submit} className="space-y-4">
