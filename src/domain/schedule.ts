@@ -47,7 +47,11 @@ export function agendaProgress(items: AgendaItem[]): AgendaProgress {
 export function routeUrl(items: AgendaItem[]): string | null {
   const stops = items
     .filter((i) => i.visit?.status !== 'done' && i.visit?.status !== 'skipped')
-    .map((i) => [i.client.address, i.client.neighborhood].filter(Boolean).join(', '))
+    .map((i) =>
+      i.client.lat !== null && i.client.lng !== null
+        ? `${i.client.lat},${i.client.lng}`
+        : [i.client.address, i.client.neighborhood].filter(Boolean).join(', '),
+    )
     .filter(Boolean)
   if (stops.length === 0) return null
   const destination = stops[stops.length - 1]
@@ -55,4 +59,34 @@ export function routeUrl(items: AgendaItem[]): string | null {
   const params = new URLSearchParams({ api: '1', destination, travelmode: 'driving' })
   if (waypoints.length) params.set('waypoints', waypoints.join('|'))
   return `https://www.google.com/maps/dir/?${params.toString()}`
+}
+
+const STATE_RANK = { done: 0, in_progress: 1, skipped: 2 } as const
+
+/**
+ * Ordem real do dia: primeiro o que já foi feito (pela hora de chegada), depois a visita em
+ * andamento, e então as pendentes na ordem da rota. É a ordem em que o piscineiro de fato chega.
+ */
+export function arrangeByProgress(items: AgendaItem[]): AgendaItem[] {
+  const started = items
+    .filter((i) => i.visit && i.visit.status !== 'skipped')
+    .sort((a, b) => STATE_RANK[a.visit!.status] - STATE_RANK[b.visit!.status] || a.visit!.checkInAt.localeCompare(b.visit!.checkInAt))
+  const pending = items.filter((i) => !i.visit)
+  const skipped = items.filter((i) => i.visit?.status === 'skipped')
+  return [...started, ...pending, ...skipped]
+}
+
+/**
+ * Novos valores de routeOrder para que `orderedPoolIds` fique nessa sequência, reaproveitando
+ * os números que essas piscinas já tinham — assim a ordem dos outros dias quase não muda.
+ */
+export function reassignRouteOrder(pools: Pool[], orderedPoolIds: string[]): Pool[] {
+  const byId = new Map(pools.map((p) => [p.id, p]))
+  const targets = orderedPoolIds.map((id) => byId.get(id)).filter((p): p is Pool => Boolean(p))
+  let values = targets.map((p) => p.routeOrder).sort((a, b) => a - b)
+  if (new Set(values).size !== values.length) {
+    const start = values[0] ?? 1
+    values = targets.map((_, i) => start + i)
+  }
+  return targets.map((p, i) => ({ ...p, routeOrder: values[i] })).filter((p, i) => p.routeOrder !== targets[i].routeOrder)
 }

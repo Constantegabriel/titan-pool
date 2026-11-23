@@ -8,11 +8,11 @@ import type { Charge, Client, Pool, Visit } from './types'
 
 const client = (over: Partial<Client> = {}): Client => ({
   id: 'c1', name: 'Ana Souza', phone: '(11) 98888-7777', address: 'Rua A, 10', neighborhood: 'Centro', notes: '',
-  monthlyFeeCents: 25000, billingDay: 10, active: true, createdAt: '', ...over,
+  monthlyFeeCents: 25000, billingDay: 10, active: true, lat: null, lng: null, createdAt: '', ...over,
 })
 const pool = (over: Partial<Pool> = {}): Pool => ({
   id: 'p1', clientId: 'c1', name: 'Principal', volumeLiters: 30000, type: 'vinil', sanitizer: 'cloro',
-  equipment: '', accessNotes: '', visitDays: [1, 4], routeOrder: 1, createdAt: '', ...over,
+  equipment: '', accessNotes: '', visitDays: [1, 4], routeOrder: 1, serviceMinutes: null, createdAt: '', ...over,
 })
 const visit = (over: Partial<Visit> = {}): Visit => ({
   id: 'v1', poolId: 'p1', clientId: 'c1', date: '2026-11-23', status: 'done', checkInAt: '', completedAt: null,

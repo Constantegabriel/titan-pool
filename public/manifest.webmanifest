@@ -1,7 +1,7 @@
 {
-  "name": "Piscineiro",
-  "short_name": "Piscineiro",
-  "description": "Clientes, rotas, relatórios de visita e cobrança.",
+  "name": "Titan Pool",
+  "short_name": "Titan Pool",
+  "description": "Roteiro do dia, clientes, relatórios de visita, compras e financeiro.",
   "lang": "pt-BR",
   "start_url": "/",
   "display": "standalone",

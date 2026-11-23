@@ -21,7 +21,7 @@ export function PoolFormPage() {
   const nextOrder = Math.max(0, ...(pools.data ?? []).map((p) => p.routeOrder)) + 1
   const initial: Pool = existing ?? {
     id: newId(), clientId: client.id, name: 'Principal', volumeLiters: 0, type: 'vinil', sanitizer: 'cloro',
-    equipment: '', accessNotes: '', visitDays: [], routeOrder: nextOrder, createdAt: nowIso(),
+    equipment: '', accessNotes: '', visitDays: [], routeOrder: nextOrder, serviceMinutes: null, createdAt: nowIso(),
   }
   return <PoolForm initial={initial} clientName={client.name} isNew={!existing} />
 }
@@ -96,9 +96,14 @@ function PoolForm({ initial, clientName, isNew }: { initial: Pool; clientName: s
               })}
             </div>
           </fieldset>
-          <Field label="Ordem na rota" hint="Menor número = visitada primeiro no dia">
-            <Input type="number" inputMode="numeric" min={0} value={pool.routeOrder} onChange={(e) => set('routeOrder', Number(e.target.value))} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tempo de serviço (min)" hint="Vazio = padrão dos ajustes">
+              <Input type="number" inputMode="numeric" min={5} max={600} step={5} value={pool.serviceMinutes ?? ''} onChange={(e) => set('serviceMinutes', e.target.value ? Number(e.target.value) : null)} />
+            </Field>
+            <Field label="Ordem na rota" hint="Ou use “Otimizar” na agenda">
+              <Input type="number" inputMode="numeric" min={0} value={pool.routeOrder} onChange={(e) => set('routeOrder', Number(e.target.value))} />
+            </Field>
+          </div>
           <Field label="Equipamentos">
             <Input placeholder="Ex.: filtro 50 kg, bomba 1/2 cv" value={pool.equipment} onChange={(e) => set('equipment', e.target.value)} />
           </Field>

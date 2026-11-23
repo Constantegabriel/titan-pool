@@ -1,6 +1,7 @@
-import { ChevronRight, MapPin, Pencil, Phone, Plus, Search, Trash2, Users, Waves } from 'lucide-react'
+import { ChevronRight, MapPin, Pencil, Phone, Plus, Search, ShoppingCart, Trash2, Users, Waves } from 'lucide-react'
 import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { LocationPicker } from '@/components/location-picker'
 import {
   Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, PageHeader, SectionTitle, Textarea,
 } from '@/components/ui'
@@ -74,7 +75,7 @@ export function ClientsPage() {
 }
 
 const blankClient = (): Client => ({
-  id: newId(), name: '', phone: '', address: '', neighborhood: '', notes: '', monthlyFeeCents: 0, billingDay: 10, active: true, createdAt: nowIso(),
+  id: newId(), name: '', phone: '', address: '', neighborhood: '', notes: '', monthlyFeeCents: 0, billingDay: 10, active: true, lat: null, lng: null, createdAt: nowIso(),
 })
 
 export function ClientFormPage() {
@@ -116,6 +117,11 @@ function ClientForm({ initial, isNew }: { initial: Client; isNew: boolean }) {
           <Field label="Bairro / cidade">
             <Input value={client.neighborhood} onChange={(e) => set('neighborhood', e.target.value)} />
           </Field>
+          <LocationPicker
+            value={client.lat !== null && client.lng !== null ? { lat: client.lat, lng: client.lng } : null}
+            address={[client.address, client.neighborhood].filter(Boolean).join(', ')}
+            onChange={(p) => setClient((c) => ({ ...c, lat: p?.lat ?? null, lng: p?.lng ?? null }))}
+          />
         </Card>
         <Card className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -193,10 +199,22 @@ export function ClientDetailPage() {
           </>
         )}
         {address && (
-          <ExternalButton href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`} variant="secondary" className="col-span-2">
-            <MapPin className="size-4" aria-hidden /> {address}
+          <ExternalButton
+            href={client.lat !== null && client.lng !== null ? `https://www.google.com/maps/search/?api=1&query=${client.lat},${client.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+            variant="secondary"
+            className="col-span-2"
+          >
+            <MapPin className="size-4 shrink-0" aria-hidden /> <span className="truncate">{address}</span>
           </ExternalButton>
         )}
+        {client.lat === null && (
+          <Link to={`/clientes/${client.id}/editar`} className="col-span-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-sm text-amber-900">
+            Sem localização no mapa — toque para definir e ter previsões exatas
+          </Link>
+        )}
+        <ButtonLink to={`/compras/nova?cliente=${client.id}`} variant="secondary" className="col-span-2">
+          <ShoppingCart className="size-4" aria-hidden /> Fazer pedido de compra para este cliente
+        </ButtonLink>
       </div>
       {client.notes && <Card className="mt-3 text-sm whitespace-pre-line text-slate-700">{client.notes}</Card>}
 

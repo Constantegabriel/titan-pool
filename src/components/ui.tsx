@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { Link, type LinkProps } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'whatsapp'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'whatsapp' | 'light'
 type Size = 'md' | 'sm'
 
 const VARIANTS: Record<Variant, string> = {
@@ -12,6 +12,7 @@ const VARIANTS: Record<Variant, string> = {
   ghost: 'text-slate-700 hover:bg-slate-100',
   danger: 'bg-white text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50',
   whatsapp: 'bg-emerald-600 text-white hover:bg-emerald-700',
+  light: 'bg-white text-cyan-800 hover:bg-cyan-50 active:bg-cyan-100',
 }
 const SIZES: Record<Size, string> = {
   md: 'h-11 px-4 text-sm gap-2',
@@ -128,4 +129,27 @@ export function Loading() {
 export function ErrorState({ error }: { error: unknown }) {
   const message = error instanceof Error ? error.message : 'Erro inesperado.'
   return <Card className="text-sm text-rose-700">Não foi possível carregar os dados. {message}</Card>
+}
+
+export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label: string }) {
+  return (
+    <div role="tablist" aria-label={label} className="mb-4 flex gap-1 rounded-xl bg-slate-200/70 p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="tab"
+          aria-selected={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn('h-9 flex-1 rounded-lg text-sm font-medium transition-colors', value === o.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function ListCard({ children }: { children: ReactNode }) {
+  return <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/70">{children}</ul>
 }

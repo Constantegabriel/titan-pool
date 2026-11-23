@@ -25,6 +25,9 @@ export interface Client {
   /** Dia do mês para vencimento (1–28). */
   billingDay: number
   active: boolean
+  /** Coordenadas da casa do cliente, usadas no roteiro e nas previsões de chegada. */
+  lat: number | null
+  lng: number | null
   createdAt: string
 }
 
@@ -40,6 +43,8 @@ export interface Pool {
   visitDays: Weekday[]
   /** Posição no roteiro do dia (menor primeiro). */
   routeOrder: number
+  /** Duração do serviço; null usa o padrão dos ajustes. */
+  serviceMinutes: number | null
   createdAt: string
 }
 
@@ -98,3 +103,105 @@ export const VISIT_TASKS = [
   'Retrolavar filtro',
   'Aplicar produtos',
 ] as const
+
+export interface GeoPoint {
+  lat: number
+  lng: number
+}
+
+/** Preferências do piscineiro (uma linha por conta). */
+export interface Settings {
+  businessName: string
+  ownerName: string
+  phone: string
+  document: string
+  /** Horário de saída padrão, HH:MM. */
+  dayStart: string
+  defaultServiceMinutes: number
+  /** Velocidade média no trânsito urbano, km/h. */
+  avgSpeedKmh: number
+  /** Ponto de partida do dia (casa/depósito). */
+  base: GeoPoint | null
+  baseLabel: string
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  businessName: 'Titan Pool',
+  ownerName: '',
+  phone: '',
+  document: '',
+  dayStart: '08:00',
+  defaultServiceMinutes: 40,
+  avgSpeedKmh: 30,
+  base: null,
+  baseLabel: '',
+}
+
+export interface Supplier {
+  id: Id
+  name: string
+  phone: string
+  contact: string
+  notes: string
+  createdAt: string
+}
+
+export type ItemUnit = 'un' | 'kg' | 'g' | 'L' | 'ml' | 'cx' | 'balde' | 'pct'
+export const ITEM_UNITS: ItemUnit[] = ['un', 'kg', 'g', 'L', 'ml', 'cx', 'balde', 'pct']
+
+/** Item da lista de compras recorrentes (catálogo). */
+export interface CatalogItem {
+  id: Id
+  name: string
+  unit: ItemUnit
+  /** Último preço unitário pago, em centavos. */
+  lastPriceCents: number | null
+  createdAt: string
+}
+
+export interface PurchaseLine {
+  name: string
+  quantity: number
+  unit: ItemUnit
+  note: string
+  /** Preço unitário informado pelo fornecedor. */
+  unitPriceCents: number | null
+}
+
+export type PurchaseStatus = 'draft' | 'sent' | 'received' | 'canceled'
+
+export interface Purchase {
+  id: Id
+  /** Número sequencial legível (ex.: 12), exibido como #0012. */
+  number: number
+  supplierId: Id | null
+  clientId: Id | null
+  lines: PurchaseLine[]
+  notes: string
+  status: PurchaseStatus
+  /** Data em que o pedido foi criado. */
+  date: IsoDate
+  sentAt: string | null
+  receivedAt: string | null
+  /** Repassar o custo ao cliente na cobrança do mês. */
+  billToClient: boolean
+  createdAt: string
+}
+
+export type TransactionKind = 'income' | 'expense'
+
+export interface Transaction {
+  id: Id
+  kind: TransactionKind
+  category: string
+  description: string
+  amountCents: number
+  date: IsoDate
+  clientId: Id | null
+  purchaseId: Id | null
+  paid: boolean
+  createdAt: string
+}
+
+export const EXPENSE_CATEGORIES = ['Produtos', 'Combustível', 'Equipamentos', 'Manutenção do veículo', 'Alimentação', 'Impostos', 'Outros'] as const
+export const INCOME_CATEGORIES = ['Serviço avulso', 'Repasse de produtos', 'Instalação/reparo', 'Outros'] as const

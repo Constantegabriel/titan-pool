@@ -8,7 +8,9 @@ import { parseIsoDate } from '@/domain/dates'
 import { whatsappLink } from '@/domain/format'
 import { visitReportMessage } from '@/domain/messages'
 import { type Client, type Pool, type ProductUsage, VISIT_TASKS, type Visit } from '@/domain/types'
-import { useClients, useDeleteVisit, usePools, useSaveVisit, useVisit } from '@/hooks/data'
+import { useCatalog, useClients, useDeleteVisit, usePools, useSaveVisit, useSettings, useVisit } from '@/hooks/data'
+import { PdfButton } from '@/components/pdf-button'
+import { loadPdf, slug } from '@/lib/share'
 import { cn } from '@/lib/cn'
 import { compressImage } from '@/lib/images'
 
@@ -42,6 +44,7 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
   )
   const save = useSaveVisit()
   const remove = useDeleteVisit()
+  const settings = useSettings()
   const navigate = useNavigate()
   const dirty = useRef(false)
   const [completing, setCompleting] = useState(false)
@@ -99,9 +102,17 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
             <CheckCircle2 className="size-5" aria-hidden /> Visita concluída
           </p>
           <p className="mt-1 text-sm text-emerald-900/80">Envie o relatório ao cliente. Alterações abaixo são salvas automaticamente.</p>
-          <ExternalButton href={whatsappLink(client.phone, report)} variant="whatsapp" className="mt-3 w-full">
-            Enviar relatório no WhatsApp
-          </ExternalButton>
+          <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+            <ExternalButton href={whatsappLink(client.phone, report)} variant="whatsapp">
+              Enviar no WhatsApp
+            </ExternalButton>
+            <PdfButton
+              label="PDF"
+              filename={`relatorio-${visit.date}-${slug(client.name)}.pdf`}
+              title={`Relatório de visita — ${client.name}`}
+              make={async () => (await loadPdf()).visitReportPdf(visit, pool, client, settings.data!)}
+            />
+          </div>
         </Card>
       )}
 
@@ -189,6 +200,7 @@ function VisitEditor({ initial, pool, client }: { initial: Visit; pool: Pool; cl
 }
 
 function Products({ products, onChange }: { products: ProductUsage[]; onChange: (p: ProductUsage[]) => void }) {
+  const catalog = useCatalog()
   const [name, setName] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState<ProductUsage['unit']>('g')
@@ -226,7 +238,7 @@ function Products({ products, onChange }: { products: ProductUsage[]; onChange: 
         </Select>
       </div>
       <datalist id="product-names">
-        {['Cloro granulado', 'Cloro estabilizado', 'Pastilha de cloro', 'Bicarbonato de sódio', 'Redutor de pH', 'Elevador de pH', 'Algicida', 'Clarificante', 'Sulfato de alumínio', 'Barrilha'].map((p) => <option key={p} value={p} />)}
+        {[...new Set([...(catalog.data ?? []).map((i) => i.name), 'Cloro granulado', 'Cloro estabilizado', 'Pastilha de cloro', 'Bicarbonato de sódio', 'Redutor de pH', 'Elevador de pH', 'Algicida', 'Clarificante', 'Sulfato de alumínio', 'Barrilha'])].map((p) => <option key={p} value={p} />)}
       </datalist>
       <Button variant="secondary" size="sm" className="w-full" onClick={add} disabled={!name.trim() || toNumber(quantity) === null}>
         <Plus className="size-4" aria-hidden /> Adicionar produto
