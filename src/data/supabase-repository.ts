@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { SHARED_WORKSPACE_ID } from '@/config'
 import { shiftPeriod } from '@/domain/dates'
 import {
   type CatalogItem, type Charge, type Client, DEFAULT_SETTINGS, type Id, type Pool, type Purchase, type Settings,
@@ -141,7 +142,8 @@ export class SupabaseRepository implements Repository {
 
   async uploadPhoto(visitId: Id, photo: Blob) {
     const { data: auth } = await this.sb.auth.getUser()
-    const path = `${auth.user?.id}/${visitId}/${crypto.randomUUID()}.jpg`
+    // Pasta = dono dos dados (usuário logado ou o espaço compartilhado do acesso aberto).
+    const path = `${auth.user?.id ?? SHARED_WORKSPACE_ID}/${visitId}/${crypto.randomUUID()}.jpg`
     const { error } = await this.sb.storage.from(PHOTO_BUCKET).upload(path, photo, { contentType: 'image/jpeg' })
     if (error) throw error
     // URL assinada de longa duração: o bucket é privado e só o dono lista/grava.

@@ -1,10 +1,11 @@
 import { Building2, ChevronRight, Cloud, Download, HardDrive, ListChecks, LogOut, Sparkles, Store, Upload } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, type ReactNode, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LocationPicker } from '@/components/location-picker'
 import { Button, Card, ErrorState, Field, Input, ListCard, Loading, PageHeader, SectionTitle } from '@/components/ui'
-import { repository, supabase, type Snapshot } from '@/data'
+import { OPEN_ACCESS } from '@/config'
+import { deviceRepository, repository, supabase, type Snapshot } from '@/data'
 import { today } from '@/domain/dates'
 import type { Settings } from '@/domain/types'
 import { useClients, useSaveSettings, useSettings } from '@/hooks/data'
@@ -79,7 +80,9 @@ export function MorePage() {
           <p className="font-semibold">{repository.mode === 'cloud' ? 'Sincronizado na nuvem' : 'Salvos neste aparelho'}</p>
           <p className="text-slate-600">
             {repository.mode === 'cloud'
-              ? 'Seus dados ficam na sua conta e aparecem em qualquer aparelho em que você entrar.'
+              ? OPEN_ACCESS
+                ? 'Tudo fica salvo no banco de dados e aparece igual no celular, no notebook e para quem tiver o link.'
+                : 'Seus dados ficam na sua conta e aparecem em qualquer aparelho em que você entrar.'
               : 'Funciona sem internet e sem conta. Faça backup com frequência: limpar o navegador apaga os dados.'}
           </p>
         </div>
@@ -94,7 +97,9 @@ export function MorePage() {
       )}
       {status && <p role="status" className="mt-2 text-center text-sm text-slate-600">{status}</p>}
 
-      {supabase && (
+      {repository.mode === 'cloud' && <DeviceDataImport onDone={() => qc.invalidateQueries()} />}
+
+      {supabase && !OPEN_ACCESS && (
         <Button variant="secondary" className="mt-6 w-full" onClick={() => supabase!.auth.signOut()}><LogOut className="size-4" aria-hidden /> Sair da conta</Button>
       )}
       <p className="mt-8 text-center text-xs text-slate-400">Titan Pool · para instalar, use “Adicionar à tela inicial” no navegador do celular.</p>
@@ -149,5 +154,45 @@ function SettingsForm({ initial }: { initial: Settings }) {
         <Button type="submit" className="w-full" loading={save.isPending}>{saved ? 'Salvo ✓' : 'Salvar'}</Button>
       </form>
     </>
+  )
+}
+
+/**
+ * Dados cadastrados antes do banco ficaram só no navegador deste aparelho.
+ * Este cartão aparece quando há algo assim e envia tudo para a nuvem com um toque.
+ */
+function DeviceDataImport({ onDone }: { onDone: () => void }) {
+  const local = useQuery({ queryKey: ['device-snapshot'], queryFn: () => deviceRepository().exportAll(), staleTime: Infinity })
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  const data = local.data
+  const count = data ? data.clients.length + (data.suppliers?.length ?? 0) + (data.purchases?.length ?? 0) + (data.transactions?.length ?? 0) : 0
+  if (!data || count === 0) return null
+
+  async function send() {
+    setState('busy')
+    try {
+      // Os ajustes do aparelho não sobrescrevem os da nuvem.
+      await repository.importAll({ ...data!, settings: undefined })
+      setState('done')
+      onDone()
+    } catch {
+      setState('error')
+    }
+  }
+
+  return (
+    <Card className="mt-3 border-brand-100 bg-brand-50/60">
+      <p className="font-semibold text-brand-900">Dados salvos só neste aparelho</p>
+      <p className="mt-0.5 text-sm text-brand-900/80">
+        Encontramos {data.clients.length} cliente(s), {data.suppliers?.length ?? 0} fornecedor(es) e {data.purchases?.length ?? 0} pedido(s)
+        cadastrados antes do banco de dados. Envie para a nuvem para ver em todos os aparelhos.
+      </p>
+      {state === 'done' ? (
+        <p className="mt-3 text-sm font-semibold text-emerald-700">Pronto! Os dados já estão no banco.</p>
+      ) : (
+        <Button className="mt-3 w-full" onClick={send} loading={state === 'busy'}>Enviar para a nuvem</Button>
+      )}
+      {state === 'error' && <p className="mt-2 text-sm text-rose-700">Não foi possível enviar agora. Tente de novo.</p>}
+    </Card>
   )
 }

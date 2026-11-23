@@ -2,20 +2,23 @@ import type { Session } from '@supabase/supabase-js'
 import { Droplets } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { Button, Card, Field, Input, Loading } from '@/components/ui'
+import { OPEN_ACCESS } from '@/config'
 import { supabase } from '@/data'
 
-/** No modo nuvem exige login; no modo local libera direto. */
+const LOGIN_REQUIRED = Boolean(supabase) && !OPEN_ACCESS
+
+/** Login só quando há banco e o acesso aberto está desligado. */
 export function AuthGate({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
+  const [session, setSession] = useState<Session | null | undefined>(LOGIN_REQUIRED ? undefined : null)
 
   useEffect(() => {
-    if (!supabase) return
+    if (!supabase || !LOGIN_REQUIRED) return
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (!supabase) return children
+  if (!LOGIN_REQUIRED) return children
   if (session === undefined) return <Loading />
   if (!session) return <LoginScreen />
   return children

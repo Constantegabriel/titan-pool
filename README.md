@@ -36,11 +36,18 @@ npm run dev
 Sem configuração, roda em **modo local**: dados no IndexedDB do aparelho, sem conta.
 Em *Mais* há backup/restauração em JSON e dados de exemplo.
 
-## Modo nuvem (Supabase)
+## Banco de dados (Supabase)
 
-1. Crie um projeto no Supabase e aplique `supabase/migrations/` em ordem (`supabase db push`).
-2. Copie `.env.example` para `.env` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
-3. O app passa a exigir login e sincroniza entre aparelhos.
+1. Crie um projeto em [supabase.com](https://supabase.com) (região São Paulo).
+2. Em **SQL Editor → New query**, cole todo o conteúdo de `supabase/setup.sql` e clique em **Run**.
+   (Gerado a partir de `supabase/migrations/` com `npm run db:setup-sql`.)
+3. Em **Project Settings → API**, copie a *Project URL* e a chave *anon/publishable* e coloque em
+   `src/config.ts` (ou nas variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` da Vercel).
+
+**Acesso aberto (padrão):** sem login — quem tem o link usa os mesmos dados, em qualquer aparelho.
+Para exigir login, defina `VITE_OPEN_ACCESS=false`; cada conta passa a ter os próprios dados.
+Dados cadastrados antes do banco (salvos só no navegador) podem ser enviados em *Mais → Enviar
+para a nuvem*.
 
 ## Arquitetura
 
