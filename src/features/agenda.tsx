@@ -219,7 +219,7 @@ export function AgendaPage() {
             {isToday ? `${greeting(now)}${s?.ownerName ? `, ${s.ownerName.split(' ')[0]}` : ''}` : 'Agenda'}
           </h1>
         </div>
-        <ButtonLink to={`/agenda/nova?data=${date}`} size="sm" className="mt-1 shrink-0"><Plus className="size-4" aria-hidden /> Agendar</ButtonLink>
+        <ButtonLink to={`/agenda/nova?data=${date}`} size="sm" className="mt-1 shrink-0 lg:hidden"><Plus className="size-4" aria-hidden /> Agendar</ButtonLink>
       </header>
 
       <WeekStrip week={week} weekStart={weekStart} selected={date} onSelect={setDate} onShift={(d) => setDate(addDays(date, d * 7))} />
@@ -232,9 +232,10 @@ export function AgendaPage() {
           </ButtonLink>
         </EmptyState>
       ) : (
-        <>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
+          <div className="lg:sticky lg:top-8">
           <section className="mb-4 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card">
-            <div className="relative z-0 h-56">
+            <div className="relative z-0 h-56 lg:h-[22rem]">
               <Suspense fallback={<div className="h-full animate-pulse bg-slate-100" />}>
                 <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} />
               </Suspense>
@@ -261,7 +262,9 @@ export function AgendaPage() {
             </p>
           )}
 
-          <div className="mt-6 mb-2.5 flex items-center justify-between gap-2">
+          </div>
+          <div>
+          <div className="mt-6 mb-2.5 flex items-center justify-between gap-2 lg:mt-0">
             <h2 className="text-[15px] font-semibold text-slate-800">Ordem de chegada</h2>
             {pendingStops.length > 1 && (
               <div className="flex gap-1">
@@ -302,7 +305,8 @@ export function AgendaPage() {
           <p className="mt-3 text-center text-xs text-slate-400">
             Previsão com {s!.avgSpeedKmh} km/h de média e {s!.defaultServiceMinutes} min por piscina · <Link to="/mais/ajustes" className="underline">ajustar</Link>
           </p>
-        </>
+          </div>
+        </div>
       )}
 
       {menuFor && <VisitMenu key={menuFor.key} item={menuFor} date={date} onClose={() => setMenuFor(null)} actions={actions} />}

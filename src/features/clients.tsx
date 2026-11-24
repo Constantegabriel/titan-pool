@@ -3,7 +3,7 @@ import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LocationPicker } from '@/components/location-picker'
 import {
-  Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, PageHeader, SectionTitle, Textarea,
+  Avatar, Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, PageHeader, SectionTitle, Textarea,
 } from '@/components/ui'
 import { newId, nowIso } from '@/data'
 import { chargeState } from '@/domain/billing'
@@ -55,6 +55,7 @@ export function ClientsPage() {
             {filtered.map((c) => (
               <li key={c.id}>
                 <Link to={`/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                  <Avatar name={c.name} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 font-medium">
                       <span className="truncate">{c.name}</span>

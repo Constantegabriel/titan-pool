@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Ban, CalendarPlus, Check, Copy, Infinity as InfinityIcon, Link2, LogOut, Plus, RotateCcw, Search, Settings2, Trash2, UserPlus,
+  ArrowLeft, BadgeCheck, Ban, Building2, CalendarPlus, Check, Copy, Hourglass, Infinity as InfinityIcon, Link2, LogOut, Plus, RotateCcw, Search,
+  Settings2, ShieldCheck, Trash2, UserPlus,
 } from 'lucide-react'
 import { type FormEvent, type ReactNode, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Sheet } from '@/components/sheet'
-import { Badge, Button, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, Segmented, Select, Textarea } from '@/components/ui'
+import { Avatar, Badge, Button, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, Segmented, Select, Textarea } from '@/components/ui'
 import { rpc } from '@/data'
 import { type AdminOrg, type OrgStatus, type PublicSettings, accessGroup, accessLabel } from '@/domain/account'
 import { addDays, today } from '@/domain/dates'
@@ -57,65 +58,130 @@ export function AdminPage() {
   const count = (f: Filter) => all.filter((o) => accessGroup(o) === f).length
   const recent = all.filter((o) => new Date(o.created_at).getTime() > openedAt - 30 * 86_400_000).length
 
+  const quickExtend = useAdminAction()
+
   return (
-    <div className="mx-auto max-w-3xl px-4 pt-5 pb-16">
-      <header className="mb-5 flex items-center gap-3">
-        <Link to="/" className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600" aria-label="Voltar ao app"><ArrowLeft className="size-5" /></Link>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Super admin</p>
-          <h1 className="truncate text-2xl font-bold tracking-tight">Contas do Titan Pool</h1>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)} aria-label="Configurações da plataforma"><Settings2 className="size-5" /></Button>
-        <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair"><LogOut className="size-5" /></Button>
-      </header>
-
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="Contas" value={all.length} hint={`${recent} nova(s) em 30 dias`} />
-        <Stat label="Em teste" value={count('trial')} tone="text-brand-700" />
-        <Stat label="Ativas" value={count('active')} tone="text-emerald-600" />
-        <Stat label="Bloqueadas" value={count('blocked')} tone={count('blocked') ? 'text-rose-600' : undefined} hint="teste vencido ou suspensas" />
+    <div className="min-h-svh">
+      <div className="border-b border-slate-200/70 bg-white">
+        <header className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 lg:px-8">
+          <Link to="/" className="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" aria-label="Voltar ao app"><ArrowLeft className="size-5" /></Link>
+          <span className="hidden size-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-float sm:flex"><ShieldCheck className="size-5" aria-hidden /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold tracking-wide text-brand-600 uppercase">Super admin</p>
+            <h1 className="truncate text-xl font-bold tracking-tight lg:text-2xl">Contas do Titan Pool</h1>
+          </div>
+          <p className="hidden text-sm text-slate-500 md:block">{account?.email}</p>
+          <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)} aria-label="Configurações da plataforma"><Settings2 className="size-4" /> <span className="hidden md:inline">Configurações</span></Button>
+          <Button variant="ghost" size="sm" onClick={signOut} aria-label="Sair"><LogOut className="size-5" /></Button>
+        </header>
       </div>
 
-      <div className="mb-3 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute top-3 left-3 size-5 text-slate-400" aria-hidden />
-          <Input className="pl-10" placeholder="Buscar por nome ou e-mail" aria-label="Buscar contas" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <div className="mx-auto max-w-7xl px-4 pt-6 pb-16 lg:px-8">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat icon={<Building2 className="size-5" />} label="Contas" value={all.length} hint={`${recent} nova(s) em 30 dias`} onClick={() => setFilter('all')} active={filter === 'all'} />
+          <Stat icon={<Hourglass className="size-5" />} label="Em teste" value={count('trial')} tone="text-brand-700" onClick={() => setFilter('trial')} active={filter === 'trial'} />
+          <Stat icon={<BadgeCheck className="size-5" />} label="Ativas" value={count('active')} tone="text-emerald-600" onClick={() => setFilter('active')} active={filter === 'active'} />
+          <Stat icon={<Ban className="size-5" />} label="Bloqueadas" value={count('blocked')} tone={count('blocked') ? 'text-rose-600' : undefined} hint="teste vencido ou suspensas" onClick={() => setFilter('blocked')} active={filter === 'blocked'} />
         </div>
-        <Button onClick={() => setCreating(true)}><UserPlus className="size-4" aria-hidden /> Novo acesso</Button>
-      </div>
-      <Segmented label="Filtrar contas" value={filter} onChange={setFilter} options={[
-        { value: 'all', label: 'Todas' }, { value: 'trial', label: 'Em teste' }, { value: 'active', label: 'Ativas' }, { value: 'blocked', label: 'Bloqueadas' },
-      ]} />
 
-      {orgs.error ? <ErrorState error={orgs.error} /> : orgs.isPending ? <Loading /> : list.length === 0 ? (
-        <EmptyState icon={<UserPlus className="size-8" />} title="Nenhuma conta aqui">Crie um acesso ou divulgue o cadastro pelo site.</EmptyState>
-      ) : (
-        <ul className="space-y-2.5">
-          {list.map((o) => {
-            const { label, tone } = accessLabel(o)
-            const mine = o.id === account?.org?.id
-            return (
-              <li key={o.id}>
-                <button type="button" onClick={() => setEditing(o)} className="w-full rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-card transition-colors hover:border-brand-200">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold">{o.name}{mine && <span className="ml-1.5 text-xs font-medium text-slate-400">(sua conta)</span>}</p>
-                      <p className="truncate text-sm text-slate-500">{o.member_emails[0] ?? o.owner_email ?? 'Sem login ainda'}</p>
-                    </div>
-                    <Badge tone={tone}>{label}</Badge>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                    <span>{o.clients} cliente(s)</span>
-                    <span>Última visita: {fmtDate(o.last_visit)}</span>
-                    <span>Desde {fmtDate(o.created_at)}</span>
-                    {o.pending_invite && o.members === 0 && <span className="font-medium text-amber-700">Convite pendente</span>}
-                  </div>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute top-3 left-3 size-5 text-slate-400" aria-hidden />
+            <Input className="pl-10" placeholder="Buscar por nome ou e-mail" aria-label="Buscar contas" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+          <div className="lg:w-[26rem] [&>div]:mb-0">
+            <Segmented label="Filtrar contas" value={filter} onChange={setFilter} options={[
+              { value: 'all', label: 'Todas' }, { value: 'trial', label: 'Em teste' }, { value: 'active', label: 'Ativas' }, { value: 'blocked', label: 'Bloqueadas' },
+            ]} />
+          </div>
+          <Button onClick={() => setCreating(true)}><UserPlus className="size-4" aria-hidden /> Novo acesso</Button>
+        </div>
+
+        {orgs.error ? <ErrorState error={orgs.error} /> : orgs.isPending ? <Loading /> : list.length === 0 ? (
+          <EmptyState icon={<UserPlus className="size-8" />} title="Nenhuma conta aqui">Crie um acesso ou divulgue o cadastro pelo site.</EmptyState>
+        ) : (
+          <>
+            {/* Notebook: tabela */}
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card md:block">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-100 bg-slate-50/70 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Conta</th>
+                    <th className="px-4 py-3">Situação</th>
+                    <th className="px-4 py-3 text-right">Clientes</th>
+                    <th className="px-4 py-3">Última visita</th>
+                    <th className="px-4 py-3">Criada em</th>
+                    <th className="px-4 py-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {list.map((o) => {
+                    const { label, tone } = accessLabel(o)
+                    const mine = o.id === account?.org?.id
+                    return (
+                      <tr key={o.id} className="cursor-pointer transition-colors hover:bg-brand-50/40" onClick={() => setEditing(o)}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={o.name} size="sm" />
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold">{o.name}{mine && <span className="ml-1.5 text-xs font-medium text-slate-400">(sua conta)</span>}</p>
+                              <p className="truncate text-xs text-slate-500">{o.member_emails[0] ?? o.owner_email ?? 'Sem login ainda'}{o.pending_invite && o.members === 0 && <span className="ml-1.5 font-semibold text-amber-700">· convite pendente</span>}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3"><Badge tone={tone}>{label}</Badge></td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums">{o.clients}</td>
+                        <td className="px-4 py-3 text-slate-600">{fmtDate(o.last_visit)}</td>
+                        <td className="px-4 py-3 text-slate-600">{fmtDate(o.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            {o.status !== 'exempt' && (
+                              <Button size="sm" variant="ghost" title="Somar 7 dias de teste" disabled={quickExtend.isPending}
+                                onClick={() => quickExtend.mutate({ fn: 'admin_extend_trial', args: { p_org_id: o.id, p_days: 7 } })}>
+                                <CalendarPlus className="size-4" aria-hidden /> +7 dias
+                              </Button>
+                            )}
+                            <Button size="sm" variant="secondary" onClick={() => setEditing(o)}>Gerenciar</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <p className="border-t border-slate-100 px-4 py-2.5 text-xs text-slate-400">{list.length} de {all.length} conta(s)</p>
+            </div>
+
+            {/* Celular: cartões */}
+            <ul className="space-y-2.5 md:hidden">
+              {list.map((o) => {
+                const { label, tone } = accessLabel(o)
+                const mine = o.id === account?.org?.id
+                return (
+                  <li key={o.id}>
+                    <button type="button" onClick={() => setEditing(o)} className="w-full rounded-2xl border border-slate-100 bg-white p-4 text-left shadow-card transition-colors hover:border-brand-200">
+                      <div className="flex items-start gap-3">
+                        <Avatar name={o.name} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold">{o.name}{mine && <span className="ml-1.5 text-xs font-medium text-slate-400">(sua conta)</span>}</p>
+                          <p className="truncate text-sm text-slate-500">{o.member_emails[0] ?? o.owner_email ?? 'Sem login ainda'}</p>
+                          <div className="mt-1.5"><Badge tone={tone}>{label}</Badge></div>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                        <span>{o.clients} cliente(s)</span>
+                        <span>Última visita: {fmtDate(o.last_visit)}</span>
+                        <span>Desde {fmtDate(o.created_at)}</span>
+                        {o.pending_invite && o.members === 0 && <span className="font-medium text-amber-700">Convite pendente</span>}
+                      </div>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
+      </div>
 
       {editing && <ManageSheet org={(orgs.data ?? []).find((o) => o.id === editing.id) ?? editing} isMine={editing.id === account?.org?.id} onClose={() => setEditing(null)} />}
       {creating && <CreateSheet defaultTrial={account?.settings.trial_days ?? 14} onClose={() => setCreating(false)} />}
@@ -124,13 +190,17 @@ export function AdminPage() {
   )
 }
 
-function Stat({ label, value, hint, tone }: { label: string; value: number; hint?: string; tone?: string }) {
+function Stat({ icon, label, value, hint, tone, onClick, active }: { icon: ReactNode; label: string; value: number; hint?: string; tone?: string; onClick: () => void; active: boolean }) {
   return (
-    <Card className="p-3">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={cn('text-2xl font-bold tabular-nums', tone)}>{value}</p>
-      {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
-    </Card>
+    <button type="button" onClick={onClick} aria-pressed={active}
+      className={cn('rounded-2xl border bg-white p-4 text-left shadow-card transition-colors hover:border-brand-200', active ? 'border-brand-300 ring-4 ring-brand-50' : 'border-slate-100')}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        <span className="flex size-9 items-center justify-center rounded-xl bg-slate-50 text-slate-500">{icon}</span>
+      </div>
+      <p className={cn('mt-1 text-3xl font-bold tabular-nums', tone)}>{value}</p>
+      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+    </button>
   )
 }
 
@@ -212,11 +282,11 @@ function ManageSheet({ org, isMine, onClose }: { org: AdminOrg; isMine: boolean;
     })
 
   return (
-    <Sheet open title={org.name} onClose={onClose}>
-      <div className="max-h-[75svh] space-y-4 overflow-y-auto pb-2">
+    <Sheet open wide title={org.name} subtitle={org.member_emails.join(', ') || 'Sem login ainda'} onClose={onClose}>
+      <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge tone={tone}>{label}</Badge>
-          <span className="text-slate-500">{org.member_emails.join(', ') || 'Sem login ainda'}</span>
+          <span className="text-slate-500">{org.clients} cliente(s) · desde {fmtDate(org.created_at)}</span>
         </div>
 
         <Group title="Período grátis">

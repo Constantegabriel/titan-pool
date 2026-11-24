@@ -153,3 +153,15 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 export function ListCard({ children }: { children: ReactNode }) {
   return <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card">{children}</ul>
 }
+
+const AVATAR_COLORS = ['bg-brand-100 text-brand-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-violet-100 text-violet-700', 'bg-sky-100 text-sky-700', 'bg-rose-100 text-rose-700', 'bg-teal-100 text-teal-700']
+
+/** Iniciais com cor fixa por nome — reconhecer o cliente na lista de relance. */
+export function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const parts = name.trim().split(/\s+/).filter((w) => w.length > 2 || /^[A-Z]/.test(w))
+  const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+  let h = 0
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const sizes = { sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-lg' }
+  return <span className={cn('flex shrink-0 items-center justify-center rounded-full font-bold', sizes[size], AVATAR_COLORS[h % AVATAR_COLORS.length])} aria-hidden>{initials}</span>
+}

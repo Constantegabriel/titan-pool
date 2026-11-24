@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
-import { Droplets, Lock, LogOut, MailCheck, MessageCircle } from 'lucide-react'
+import { CalendarDays, Droplets, Eye, EyeOff, FlaskConical, Lock, LogOut, MailCheck, MessageCircle, Wallet } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Button, Card, ErrorState, ExternalButton, Field, Input, Loading } from '@/components/ui'
+import { Button, ErrorState, ExternalButton, Field, Input, Loading } from '@/components/ui'
 import { rpc, supabase } from '@/data'
 import { type OrgInfo, accessLabel } from '@/domain/account'
 import { whatsappLink } from '@/domain/format'
@@ -28,16 +28,79 @@ export function Brand({ className }: { className?: string }) {
   )
 }
 
+const BENEFITS: Array<[ReactNode, string, string]> = [
+  [<CalendarDays key="c" className="size-5" />, 'Agenda e rota do dia', 'Visitas na melhor ordem, com horário de chegada.'],
+  [<FlaskConical key="f" className="size-5" />, 'Relatório da piscina', 'Análise da água, fotos e envio pelo WhatsApp.'],
+  [<Wallet key="w" className="size-5" />, 'Financeiro em dia', 'Mensalidades, compras e lucro de cada mês.'],
+]
+
+/** Moldura das telas de entrada: painel da marca no notebook, cabeçalho azul no celular. */
 function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
   return (
-    <div className="mx-auto flex min-h-svh max-w-sm flex-col justify-center px-4 py-10">
-      <Brand className="mb-8 self-center" />
-      <Card className="p-5">
-        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-        <div className="mt-5">{children}</div>
-      </Card>
-      {footer && <div className="mt-5 text-center text-sm text-slate-600">{footer}</div>}
+    <div className="min-h-svh bg-white md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-10 text-white md:flex md:flex-col">
+        <Waves />
+        <Link to="/inicio" className="relative inline-flex items-center gap-2.5">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur"><Droplets className="size-5" aria-hidden /></span>
+          <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+        </Link>
+        <div className="relative mt-auto max-w-md">
+          <h2 className="text-4xl font-extrabold leading-tight tracking-tight">O dia do piscineiro, organizado no celular.</h2>
+          <ul className="mt-8 space-y-5">
+            {BENEFITS.map(([icon, t, d]) => (
+              <li key={t} className="flex gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">{icon}</span>
+                <span><span className="block font-semibold">{t}</span><span className="block text-sm text-brand-100">{d}</span></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="relative mt-10 text-sm text-brand-200">© {YEAR} Titan Pool</p>
+      </aside>
+
+      <div className="flex min-h-svh flex-col">
+        <div className="relative overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-16 text-white md:hidden">
+          <Waves />
+          <Link to="/inicio" className="relative inline-flex items-center gap-2">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-white/15"><Droplets className="size-5" aria-hidden /></span>
+            <span className="text-lg font-bold">Titan Pool</span>
+          </Link>
+        </div>
+        <div className="-mt-10 flex flex-1 flex-col px-4 pb-10 md:mt-0 md:items-center md:justify-center md:px-10">
+          <div className="tp-page w-full rounded-3xl bg-white p-5 shadow-card md:max-w-sm md:p-0 md:shadow-none">
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            {subtitle && <p className="mt-1.5 text-[15px] text-slate-500">{subtitle}</p>}
+            <div className="mt-6">{children}</div>
+            {footer && <div className="mt-6 border-t border-slate-100 pt-5 text-center text-sm text-slate-600">{footer}</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const YEAR = new Date().getFullYear()
+
+/** Ondas decorativas do painel azul. */
+function Waves() {
+  return (
+    <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full text-white/10" viewBox="0 0 400 160" preserveAspectRatio="none" aria-hidden>
+      <path d="M0 80 C 60 50, 120 110, 200 80 S 340 50, 400 80 L400 160 L0 160Z" fill="currentColor" />
+      <path d="M0 110 C 70 85, 130 135, 210 110 S 330 85, 400 110 L400 160 L0 160Z" fill="currentColor" />
+    </svg>
+  )
+}
+
+/** Senha com botão de mostrar/ocultar. */
+function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative">
+      <Input {...props} type={show ? 'text' : 'password'} className="pr-12" />
+      <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
+        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400 hover:text-slate-600">
+        {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+      </button>
     </div>
   )
 }
@@ -75,10 +138,10 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell title="Entrar" subtitle="Acesse a agenda e os dados da sua empresa." footer={<>Ainda não tem conta? <Link to="/cadastro" className="font-semibold text-brand-700">Teste grátis</Link></>}>
+    <AuthShell title="Bem-vindo de volta" subtitle="Entre para ver a agenda e os dados da sua empresa." footer={<>Ainda não tem conta? <Link to="/cadastro" className="font-semibold text-brand-700">Teste grátis</Link></>}>
       <form onSubmit={submit} className="space-y-4">
         <Field label="E-mail"><Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Field label="Senha"><Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <Field label="Senha"><PasswordInput autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {msg && <Message tone={msg.tone}>{msg.text}</Message>}
         <Button type="submit" className="h-12 w-full text-base" loading={busy}>Entrar</Button>
         <button type="button" onClick={forgot} className="block w-full text-center text-sm font-medium text-slate-500 hover:text-brand-700">Esqueci minha senha</button>
@@ -156,7 +219,7 @@ export function SignupPage() {
             <Field label="Nome da sua empresa"><Input required maxLength={120} placeholder="Ex.: Piscinas Silva" value={businessName} onChange={(e) => setBusinessName(e.target.value)} /></Field>
           )}
           <Field label="E-mail"><Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-          <Field label="Crie uma senha" hint="Mínimo de 6 caracteres"><Input type="password" autoComplete="new-password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+          <Field label="Crie uma senha" hint="Mínimo de 6 caracteres"><PasswordInput autoComplete="new-password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           {error && <Message tone="error">{error}</Message>}
           <Button type="submit" className="h-12 w-full text-base" loading={busy}>{invite ? 'Ativar acesso' : 'Criar conta grátis'}</Button>
           <p className="text-center text-xs text-slate-400">Ao continuar você concorda em usar o Titan Pool para gerenciar seus clientes e serviços.</p>
@@ -195,7 +258,7 @@ export function NewPasswordPage() {
         <Message tone="error">Link expirado. Peça um novo em “Esqueci minha senha”.</Message>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <Field label="Nova senha" hint="Mínimo de 6 caracteres"><Input type="password" autoComplete="new-password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+          <Field label="Nova senha" hint="Mínimo de 6 caracteres"><PasswordInput autoComplete="new-password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
           {error && <Message tone="error">{error}</Message>}
           <Button type="submit" className="h-12 w-full text-base" loading={busy}>Salvar senha</Button>
         </form>
