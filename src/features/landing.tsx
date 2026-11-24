@@ -1,6 +1,6 @@
 import {
-  ArrowRight, BellRing, CalendarDays, Camera, Car, Check, CheckCircle2, ChevronDown, Clock, FileText, FlaskConical, Laptop, MapPin, Menu,
-  Navigation, Route as RouteIcon, Send, ShoppingBag, Smartphone, Sparkles, Wallet, X,
+  ArrowRight, BellRing, Building2, CalendarDays, Camera, Car, Check, CheckCircle2, ChevronDown, Clock, Download, Droplets, FileText, FlaskConical,
+  Laptop, MapPin, Menu, MessageCircle, Navigation, Send, ShieldCheck, ShoppingBag, Smartphone, Sparkles, UserRound, Users, Wallet, X,
 } from 'lucide-react'
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -10,7 +10,7 @@ import { whatsappLink } from '@/domain/format'
 import { haversineKm, optimizeOrder, ROAD_FACTOR } from '@/domain/route'
 import { cn } from '@/lib/cn'
 import { prefersReducedMotion, useReveal } from '@/lib/use-reveal'
-import { Brand } from './auth'
+import { Bubbles, WaterBackground, Waves } from '@/components/water'
 
 const YEAR = new Date().getFullYear()
 
@@ -63,17 +63,31 @@ function CountUp({ to, decimals = 0, suffix = '' }: { to: number; decimals?: num
 }
 
 function Cta({ signup, contact, trialDays, className, light }: { signup: string | null; contact: string | null; trialDays: number; className?: string; light?: boolean }) {
+  const [ripples, setRipples] = useState<Array<{ id: number; x: number; y: number; size: number }>>([])
+  // Ondinha a partir do toque, como uma gota na água.
+  const onDown = (e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const size = Math.max(r.width, r.height) / 2
+    const id = Date.now()
+    setRipples((list) => [...list, { id, x: e.clientX - r.left - size / 2, y: e.clientY - r.top - size / 2, size }])
+    setTimeout(() => setRipples((list) => list.filter((x) => x.id !== id)), 650)
+  }
   const cls = cn(
-    'group inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-base font-semibold transition-all active:scale-[0.98]',
-    light ? 'bg-white text-brand-700 hover:bg-brand-50' : 'bg-brand-600 text-white shadow-float hover:bg-brand-700',
+    'group relative inline-flex h-13 items-center justify-center gap-2 overflow-hidden rounded-xl px-7 text-base font-semibold transition-all active:scale-[0.98]',
+    light ? 'bg-white text-brand-700 shadow-[0_12px_30px_-10px_rgb(4_19_63/0.5)] hover:bg-sky-50' : 'bg-brand-600 text-white shadow-float hover:bg-brand-700',
     className,
   )
-  const arrow = <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5" aria-hidden />
-  if (signup) return <Link to={signup} className={cls}>Testar grátis por {trialDays} dias {arrow}</Link>
+  const inner = (label: string) => (
+    <>
+      {ripples.map((r) => <span key={r.id} className="tp-ripple opacity-30" style={{ left: r.x, top: r.y, width: r.size, height: r.size }} />)}
+      <span className="relative">{label}</span>
+      <ArrowRight className="relative size-5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+    </>
+  )
+  if (signup) return <Link to={signup} className={cls} onPointerDown={onDown}>{inner(`Testar grátis por ${trialDays} dias`)}</Link>
   if (!contact) return null
-  return <a href={contact} target="_blank" rel="noopener noreferrer" className={cls}>Quero conhecer {arrow}</a>
+  return <a href={contact} target="_blank" rel="noopener noreferrer" className={cls} onPointerDown={onDown}>{inner('Quero conhecer')}</a>
 }
-
 
 /** Roda um passo a cada `ms` enquanto o elemento está na tela (e só se o sistema permite animação). */
 function useTicker(steps: number, ms: number) {
@@ -105,75 +119,75 @@ export function LandingPage() {
   const contact = settings.support_whatsapp ? whatsappLink(settings.support_whatsapp, 'Olá! Quero conhecer o Titan Pool.') : null
   const cta = { signup, contact, trialDays: settings.trial_days }
   const links = [['#recursos', 'Recursos'], ['#rota', 'Rota'], ['#agua', 'Análise da água'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas']]
+  const solid = scrollY > 40
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-white text-slate-900">
-      <header className={cn('sticky top-0 z-40 transition-colors duration-300', scrollY > 10 ? 'border-b border-slate-100/80 bg-white/85 backdrop-blur-md' : 'bg-transparent')}>
+      <header className={cn('fixed inset-x-0 top-0 z-40 transition-all duration-300', solid ? 'border-b border-slate-100/80 bg-white/90 text-slate-900 shadow-sm backdrop-blur-md' : 'text-white')}>
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Brand />
-          <nav className="hidden gap-7 text-sm font-medium text-slate-600 lg:flex">
-            {links.map(([h, l]) => <a key={h} href={h} className="transition-colors hover:text-brand-700">{l}</a>)}
+          <Link to="/" className="inline-flex items-center gap-2">
+            <span className={cn('flex size-9 items-center justify-center rounded-xl transition-colors', solid ? 'bg-brand-600 text-white' : 'bg-white/20 text-white backdrop-blur')}><Droplets className="size-5" aria-hidden /></span>
+            <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+          </Link>
+          <nav className={cn('hidden gap-7 text-sm font-medium lg:flex', solid ? 'text-slate-600' : 'text-white/85')}>
+            {links.map(([h, l]) => <a key={h} href={h} className={cn('transition-colors', solid ? 'hover:text-brand-700' : 'hover:text-white')}>{l}</a>)}
           </nav>
           <div className="flex items-center gap-2">
-            <Link to="/entrar" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Entrar</Link>
-            {signup && <Link to={signup} className="hidden rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 sm:inline-flex">Testar grátis</Link>}
-            <button type="button" className="flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <Link to="/entrar" className={cn('rounded-xl px-3 py-2 text-sm font-semibold', solid ? 'text-slate-700 hover:bg-slate-100' : 'text-white hover:bg-white/15')}>Entrar</Link>
+            {signup && <Link to={signup} className={cn('hidden rounded-xl px-4 py-2 text-sm font-semibold sm:inline-flex', solid ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-white text-brand-700 hover:bg-brand-50')}>Testar grátis</Link>}
+            <button type="button" className={cn('flex size-10 items-center justify-center rounded-xl lg:hidden', solid ? 'text-slate-600 hover:bg-slate-100' : 'text-white hover:bg-white/15')} aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
               {menu ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
           </div>
         </div>
         {menu && (
-          <nav className="tp-fade border-t border-slate-100 bg-white px-4 py-3 lg:hidden">
-            {links.map(([h, l]) => <a key={h} href={h} onClick={() => setMenu(false)} className="block rounded-xl px-3 py-2.5 font-medium text-slate-700 hover:bg-slate-50">{l}</a>)}
+          <nav className="tp-fade border-t border-slate-100 bg-white px-4 py-3 text-slate-700 lg:hidden">
+            {links.map(([h, l]) => <a key={h} href={h} onClick={() => setMenu(false)} className="block rounded-xl px-3 py-2.5 font-medium hover:bg-slate-50">{l}</a>)}
           </nav>
         )}
       </header>
 
-      {/* Abertura assimétrica: texto à esquerda, celular deslocado com cartões flutuando */}
-      <section className="relative isolate -mt-16 overflow-hidden pt-16">
-        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
-          <div className="tp-blob absolute -top-40 right-[-10rem] size-[38rem] rounded-full bg-brand-200/50 blur-3xl" />
-          <div className="tp-blob absolute top-60 -left-40 size-[26rem] rounded-full bg-sky-100 blur-3xl [animation-delay:-7s]" />
-          <svg className="absolute right-0 bottom-0 h-40 w-2/3 text-brand-50" viewBox="0 0 400 100" preserveAspectRatio="none"><path d="M0 100 C 120 20, 260 90, 400 10 L400 100Z" fill="currentColor" /></svg>
-        </div>
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-24 md:grid-cols-12 md:pt-20 md:pb-32">
-          <div className="md:col-span-7 lg:col-span-6">
-            <p className="tp-rise inline-flex items-center gap-1.5 rounded-full border border-brand-100 bg-white/80 px-3 py-1 text-xs font-semibold text-brand-700 shadow-card backdrop-blur">
-              <Sparkles className="size-3.5" aria-hidden /> Feito para piscineiros
+      {/* Abertura: dentro da água */}
+      <section className="relative isolate overflow-hidden pt-16 text-white">
+        <WaterBackground />
+        <div className="absolute inset-0 -z-0 bg-gradient-to-r from-brand-900/45 via-transparent to-transparent" aria-hidden />
+        <Bubbles count={16} />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-36 md:grid-cols-12 md:pt-20 md:pb-44">
+          <div className="md:col-span-7">
+            <p className="tp-rise inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold backdrop-blur">
+              <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" /><span className="relative inline-flex size-2 rounded-full bg-emerald-300" /></span>
+              O app do piscineiro
             </p>
-            <h1 className="tp-rise mt-5 text-[2.7rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] md:text-[4.2rem]">
-              Sua rota,<br />seus clientes,<br />
-              <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-brand-500 via-brand-600 to-sky-500 bg-clip-text text-transparent">seu dinheiro.</span>
-                <svg className="absolute -bottom-2 left-0 h-3 w-full text-brand-300" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden>
-                  <path d="M2 9 C 50 2, 120 2, 198 7" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" pathLength={100} strokeDasharray="100" className="tp-draw [animation-delay:600ms]" />
-                </svg>
-              </span>
+            <h1 className="tp-rise mt-6 text-[2.8rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] [text-shadow:0_2px_30px_rgb(11_58_168/0.35)] md:text-[4.4rem]">
+              Mais piscinas por dia.<br /><span className="text-sky-200">Menos tempo no volante.</span>
             </h1>
-            <p className="tp-rise mt-6 max-w-lg text-lg text-slate-600 [animation-delay:160ms]">
-              Agenda de visitas, rota otimizada com horário de chegada, relatório da piscina pelo WhatsApp, compras e mensalidades — tudo no celular.
+            <p className="tp-rise mt-6 max-w-xl text-lg text-white/90 [animation-delay:160ms] md:text-xl">
+              O Titan Pool organiza sua agenda, monta a melhor rota, gera o relatório da piscina e cobra seus clientes. Você trabalha menos no papel e mais na água.
             </p>
-            <div className="tp-rise mt-8 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row">
-              <Cta {...cta} />
-              <a href="#rota" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-base font-semibold text-slate-700 hover:bg-slate-50">
-                <RouteIcon className="size-5 text-brand-600" aria-hidden /> Ver a rota em ação
+            <div className="tp-rise mt-9 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row">
+              <Cta {...cta} light />
+              <a href="#como-funciona" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/15 px-6 text-base font-semibold text-white ring-1 ring-white/30 backdrop-blur hover:bg-white/25">
+                Ver como funciona
               </a>
             </div>
-            <ul className="tp-rise mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500 [animation-delay:320ms]">
-              {['Sem cartão de crédito', 'Pronto em 5 minutos', 'Celular e notebook'].map((t) => (
-                <li key={t} className="flex items-center gap-1.5"><Check className="size-4 text-emerald-500" aria-hidden />{t}</li>
+            <ul className="tp-rise mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85 [animation-delay:320ms]">
+              {['Teste grátis sem cartão', 'Pronto em 5 minutos', 'Celular e notebook'].map((t) => (
+                <li key={t} className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-sky-200" aria-hidden />{t}</li>
               ))}
             </ul>
           </div>
-          <div className="relative md:col-span-5 md:col-start-8 lg:col-span-5 lg:col-start-8" style={{ transform: `translate3d(0, ${scrollY * -0.08}px, 0)` }}>
+          <div className="relative md:col-span-5" style={{ transform: `translate3d(0, ${scrollY * -0.1}px, 0)` }}>
             <AnimatedPhone />
             <FloatChip className="top-6 -left-6 [animation-delay:-1s] md:-left-16" icon={<Navigation className="size-4" />} tone="bg-brand-600 text-white">Rota otimizada · 22 km</FloatChip>
             <FloatChip className="top-1/2 -right-2 [animation-delay:-3s] md:-right-10" icon={<BellRing className="size-4" />} tone="bg-amber-400 text-white">Lembrete de mensalidade</FloatChip>
             <FloatChip className="bottom-10 -left-4 [animation-delay:-5s] md:-left-20" icon={<FlaskConical className="size-4" />} tone="bg-emerald-500 text-white">pH 7,4 · ideal</FloatChip>
           </div>
         </div>
+        <Waves />
       </section>
 
+      <Pains />
+      <Mission />
       <Marquee />
 
       {/* Recursos em mosaico */}
@@ -188,13 +202,14 @@ export function LandingPage() {
         <Bento />
       </section>
 
-      {/* Rota: faixa inclinada */}
-      <section id="rota" className="relative isolate scroll-mt-20 py-28">
-        <div className="absolute inset-0 -z-10 origin-top-left -skew-y-2 bg-slate-950" aria-hidden />
-        <div className="mx-auto max-w-6xl px-4 text-white">
+      {/* Rota: água funda */}
+      <section id="rota" className="relative isolate scroll-mt-20 overflow-hidden pt-32 pb-36 text-white">
+        <WaterBackground top="#123f9c" bottom="#04133f" light={0.35} />
+        <Waves flip />
+        <div className="relative mx-auto max-w-6xl px-4">
           <div className="grid gap-6 md:grid-cols-12 md:items-end">
             <div className="tp-reveal md:col-span-6">
-              <p className="text-sm font-semibold tracking-wider text-brand-300 uppercase">Rota inteligente</p>
+              <p className="text-sm font-semibold tracking-wider text-sky-300 uppercase">Rota inteligente</p>
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl md:leading-[1.05]">Menos volta.<br />Mais visitas no dia.</h2>
             </div>
             <div className="tp-reveal grid grid-cols-3 gap-4 md:col-span-6">
@@ -205,6 +220,7 @@ export function LandingPage() {
           </div>
           <RouteCompare />
         </div>
+        <Waves />
       </section>
 
       {/* Análise da água: assimétrica ao contrário */}
@@ -220,17 +236,25 @@ export function LandingPage() {
         </div>
       </section>
 
+      <Audience />
       <Steps />
+      <Guarantees hasSupport={Boolean(contact)} />
 
       {/* Plano */}
       <section id="planos" className="scroll-mt-20 px-4 py-24">
+        <div className="tp-reveal mx-auto mb-12 max-w-2xl text-center">
+          <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Planos</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl md:leading-[1.05]">Experimente antes de decidir.</h2>
+          <p className="mt-3 text-lg text-slate-600">Use tudo liberado durante o teste. Se gostar, a gente ativa o seu plano.</p>
+        </div>
         <div className="tp-reveal relative mx-auto grid max-w-5xl overflow-hidden rounded-[2.5rem] bg-white shadow-[0_30px_80px_-30px_rgb(31_98_232/0.45)] ring-1 ring-slate-100 md:grid-cols-12">
-          <div className="relative overflow-hidden bg-gradient-to-br from-brand-600 to-brand-900 p-8 text-white md:col-span-5 md:p-10">
-            <div className="tp-blob absolute -right-16 -bottom-16 size-64 rounded-full bg-sky-400/30 blur-2xl" aria-hidden />
-            <p className="relative text-sm font-semibold text-brand-100">Titan Pool completo</p>
-            <p className="relative mt-3 text-6xl font-extrabold tracking-tight">{settings.trial_days}</p>
+          <div className="relative isolate overflow-hidden p-8 text-white md:col-span-5 md:p-10">
+            <WaterBackground light={0.45} />
+            <Bubbles count={7} />
+            <p className="relative text-sm font-semibold text-sky-100">Titan Pool completo</p>
+            <p className="relative mt-3 text-7xl font-extrabold tracking-tight">{settings.trial_days}</p>
             <p className="relative text-2xl font-bold">dias grátis</p>
-            <p className="relative mt-4 text-brand-100">Sem cartão. Depois, plano mensal acessível — fale com a gente para ativar.</p>
+            <p className="relative mt-4 text-white/85">Sem cartão de crédito. Depois, plano mensal acessível — fale com a gente para ativar.</p>
           </div>
           <div className="p-8 md:col-span-7 md:p-10">
             <ul className="grid gap-3 text-[15px] sm:grid-cols-2">
@@ -244,7 +268,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Dúvidas: título fixo à esquerda, perguntas à direita */}
+      {/* Dúvidas */}
       <section id="duvidas" className="mx-auto grid max-w-6xl scroll-mt-20 gap-10 px-4 pb-24 md:grid-cols-12">
         <div className="tp-reveal md:sticky md:top-28 md:col-span-4 md:self-start">
           <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Dúvidas</p>
@@ -257,7 +281,7 @@ export function LandingPage() {
             ['Funciona no celular e no notebook?', 'Sim. Os dados ficam na nuvem e aparecem iguais em qualquer aparelho em que você entrar.'],
             ['Como acho o endereço do cliente?', 'Digite o CEP ou comece a escrever a rua: as opções aparecem e a localização no mapa é marcada sozinha.'],
             ['Como funciona o teste grátis?', 'Você cria a conta e usa tudo liberado durante o teste, sem cartão. Depois é só falar com a gente para continuar.'],
-            ['Meus dados ficam seguros?', 'Cada conta só enxerga os próprios dados, protegidos por login e por regras no banco de dados.'],
+            ['Meus dados ficam seguros?', 'Cada conta só enxerga os próprios dados, protegidos por login e por regras no banco de dados. E você pode baixar um backup quando quiser.'],
           ].map(([q, a], i) => (
             <details key={q} className="tp-reveal group rounded-2xl border border-slate-100 bg-white p-5 shadow-card open:border-brand-200" style={{ transitionDelay: `${i * 60}ms` }}>
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
@@ -269,33 +293,186 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="px-4 pb-20">
-        <div className="tp-reveal relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-brand-600 to-brand-900 px-6 py-16 text-white md:px-14 md:py-20">
-          <div className="tp-blob absolute -top-20 right-10 size-72 rounded-full bg-sky-400/25 blur-3xl" aria-hidden />
-          <div className="relative grid items-center gap-8 md:grid-cols-12">
-            <div className="md:col-span-8">
-              <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl md:leading-[1.05]">Menos papel,<br />mais piscina limpa.</h2>
-              <p className="mt-4 max-w-xl text-lg text-brand-100">Organize sua semana em minutos e chegue no horário em todos os clientes.</p>
-            </div>
-            <div className="md:col-span-4 md:text-right"><Cta {...cta} light /></div>
-          </div>
+      {/* Chamada final, de volta à água */}
+      <section className="relative isolate overflow-hidden pt-32 pb-24 text-white">
+        <WaterBackground />
+        <Waves flip />
+        <Bubbles count={12} />
+        <div className="relative mx-auto max-w-4xl px-4 text-center">
+          <h2 className="tp-reveal text-4xl font-extrabold tracking-tight md:text-6xl md:leading-[1.02]">Sua próxima semana pode começar organizada.</h2>
+          <p className="tp-reveal mx-auto mt-5 max-w-xl text-lg text-white/90">Cadastre seus clientes hoje e amanhã cedo a rota já está pronta no celular.</p>
+          <div className="tp-reveal mt-9 flex justify-center"><Cta {...cta} light /></div>
         </div>
       </section>
 
-      <footer className="border-t border-slate-100">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-slate-500 sm:flex-row">
-          <Brand />
-          <p>© {YEAR} Titan Pool</p>
-          <Link to="/entrar" className="font-semibold text-slate-700 hover:text-brand-700">Entrar</Link>
+      <Footer contact={contact} signup={signup} />
+    </div>
+  )
+}
+
+/** "Seu dia ainda é assim?" — a dor e a troca. */
+function Pains() {
+  const rows: Array<[string, string]> = [
+    ['Agenda no caderno ou de cabeça', 'Agenda fixa que se monta sozinha toda semana'],
+    ['Rota no improviso, cruzando a cidade', 'Melhor ordem de visitas com horário de chegada'],
+    ['Cliente perguntando o que foi feito', 'Relatório com fotos enviado pelo WhatsApp'],
+    ['Mensalidade esquecida, cobrança sem jeito', 'Quem pagou e quem atrasou, com lembrete pronto'],
+    ['Lista de compras perdida no celular', 'Pedido pronto para o fornecedor em um toque'],
+  ]
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-24">
+      <div className="tp-reveal max-w-2xl">
+        <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Seu dia ainda é assim?</p>
+        <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl md:leading-[1.05]">Você é ótimo na piscina. O resto não precisa tomar seu tempo.</h2>
+      </div>
+      <div className="mt-12 grid gap-4 md:grid-cols-2">
+        <div className="tp-reveal rounded-[2rem] bg-slate-50 p-6 md:p-8">
+          <p className="font-bold text-slate-500">Sem o Titan Pool</p>
+          <ul className="mt-5 space-y-4">
+            {rows.map(([bad]) => (
+              <li key={bad} className="flex items-start gap-3 text-slate-500"><span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-500"><X className="size-3.5" /></span><span className="tp-strike">{bad}</span></li>
+            ))}
+          </ul>
         </div>
-      </footer>
+        <div className="tp-reveal relative isolate overflow-hidden rounded-[2rem] p-6 text-white md:translate-y-8 md:p-8" style={{ transitionDelay: '120ms' }}>
+          <WaterBackground light={0.4} />
+          <p className="relative font-bold text-sky-100">Com o Titan Pool</p>
+          <ul className="relative mt-5 space-y-4">
+            {rows.map(([, good]) => (
+              <li key={good} className="flex items-start gap-3 font-medium"><span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-brand-600"><Check className="size-3.5" strokeWidth={3} /></span>{good}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Missão da marca, com as palavras acendendo ao aparecer. */
+function Mission() {
+  const words = 'Nossa missão é dar ao piscineiro a mesma organização das grandes empresas — sem complicação, direto no celular.'.split(' ')
+  const highlight = new Set(['piscineiro', 'organização', 'celular.'])
+  return (
+    <section className="relative isolate overflow-hidden bg-slate-50 py-24">
+      <div className="mx-auto max-w-5xl px-4">
+        <p className="tp-reveal text-sm font-semibold tracking-wider text-brand-600 uppercase">Sobre o Titan Pool</p>
+        <p className="tp-reveal tp-words mt-4 text-3xl leading-tight font-bold tracking-tight text-slate-900 md:text-5xl md:leading-[1.15]">
+          {words.map((w, i) => (
+            <span key={i} style={{ transitionDelay: `${i * 45}ms` }} className={cn('inline-block', highlight.has(w) && 'text-brand-600')}>{w}&nbsp;</span>
+          ))}
+        </p>
+        <div className="tp-reveal mt-12 grid gap-6 sm:grid-cols-3">
+          {[
+            ['Feito para o dia a dia', 'Telas pensadas para usar com uma mão, no sol, entre uma piscina e outra.'],
+            ['Simples de começar', 'Cadastre pelo CEP, marque os dias de visita e a agenda está pronta.'],
+            ['Cresce com você', 'Do piscineiro autônomo à empresa com vários clientes, os dados ficam organizados.'],
+          ].map(([t, d]) => (
+            <div key={t} className="border-l-2 border-brand-200 pl-4">
+              <p className="font-bold">{t}</p>
+              <p className="mt-1 text-[15px] text-slate-600">{d}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Para quem é. */
+function Audience() {
+  const items: Array<[ReactNode, string, string]> = [
+    [<UserRound key="a" className="size-6" />, 'Piscineiro autônomo', 'Organize a semana sozinho, chegue no horário e cobre sem constrangimento.'],
+    [<Users key="b" className="size-6" />, 'Pequenas equipes', 'Cada piscina com histórico, fotos e relatórios: qualquer pessoa sabe o que foi feito.'],
+    [<Building2 key="c" className="size-6" />, 'Condomínios e clubes', 'Visitas com horário combinado, relatórios em PDF e registro de tudo que foi aplicado.'],
+  ]
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-24">
+      <div className="grid gap-10 md:grid-cols-12">
+        <div className="tp-reveal md:col-span-4">
+          <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Para quem é</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">Do autônomo à empresa de manutenção.</h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3 md:col-span-8">
+          {items.map(([icon, t, d], i) => (
+            <div key={t} className={cn('tp-reveal group rounded-[2rem] border border-slate-100 bg-white p-6 shadow-card transition-transform duration-300 hover:-translate-y-1', i === 1 && 'sm:mt-10')} style={{ transitionDelay: `${i * 100}ms` }}>
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-float transition-transform group-hover:scale-110">{icon}</span>
+              <p className="mt-4 text-lg font-bold">{t}</p>
+              <p className="mt-1 text-[15px] text-slate-600">{d}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Garantias e confiança. */
+function Guarantees({ hasSupport }: { hasSupport: boolean }) {
+  const items: Array<[ReactNode, string, string]> = [
+    [<Sparkles key="a" className="size-5" />, 'Teste sem cartão', 'Use tudo liberado antes de decidir.'],
+    [<ShieldCheck key="b" className="size-5" />, 'Dados protegidos', 'Cada conta só vê os próprios dados.'],
+    [<Download key="c" className="size-5" />, 'Seus dados são seus', 'Baixe um backup quando quiser.'],
+    hasSupport
+      ? [<MessageCircle key="d" className="size-5" />, 'Suporte no WhatsApp', 'Fale com a gente direto pelo celular.']
+      : [<Smartphone key="d" className="size-5" />, 'Celular e notebook', 'Os mesmos dados em qualquer aparelho.'],
+  ]
+  return (
+    <section className="px-4 pb-8">
+      <div className="tp-reveal mx-auto grid max-w-6xl gap-px overflow-hidden rounded-[2rem] bg-slate-100 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map(([icon, t, d]) => (
+          <div key={t} className="flex items-start gap-3 bg-white p-6">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">{icon}</span>
+            <div><p className="font-bold">{t}</p><p className="text-sm text-slate-500">{d}</p></div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Footer({ contact, signup }: { contact: string | null; signup: string | null }) {
+  return (
+    <footer className="bg-slate-950 text-slate-300">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-12">
+        <div className="md:col-span-5">
+          <div className="flex items-center gap-2 text-white">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600"><Droplets className="size-5" aria-hidden /></span>
+            <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+          </div>
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">O app do piscineiro: agenda, rota, relatórios da piscina, compras e financeiro em um só lugar, no celular e no notebook.</p>
+        </div>
+        <FooterCol title="Produto" links={[['#recursos', 'Recursos'], ['#rota', 'Rota inteligente'], ['#agua', 'Análise da água'], ['#planos', 'Planos']]} />
+        <FooterCol title="Conta" links={[['/entrar', 'Entrar'], ...(signup ? [[signup, 'Criar conta grátis'] as [string, string]] : [])]} />
+        <div className="md:col-span-3">
+          <p className="text-sm font-semibold text-white">Contato</p>
+          {contact
+            ? <a href={contact} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm hover:text-white"><MessageCircle className="size-4" />WhatsApp</a>
+            : <p className="mt-3 text-sm text-slate-400">Fale com a gente pelo app.</p>}
+        </div>
+      </div>
+      <div className="border-t border-white/10">
+        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-slate-500">© {YEAR} Titan Pool. Todos os direitos reservados.</p>
+      </div>
+    </footer>
+  )
+}
+
+function FooterCol({ title, links }: { title: string; links: Array<[string, string]> }) {
+  return (
+    <div className="md:col-span-2">
+      <p className="text-sm font-semibold text-white">{title}</p>
+      <ul className="mt-3 space-y-2 text-sm">
+        {links.map(([href, label]) => (
+          <li key={href}>{href.startsWith('/') ? <Link to={href} className="hover:text-white">{label}</Link> : <a href={href} className="hover:text-white">{label}</a>}</li>
+        ))}
+      </ul>
     </div>
   )
 }
 
 function FloatChip({ className, icon, tone, children }: { className?: string; icon: ReactNode; tone: string; children: ReactNode }) {
   return (
-    <div className={cn('tp-float absolute z-10 hidden items-center gap-2 rounded-2xl bg-white py-2 pr-3.5 pl-2 text-sm font-semibold shadow-xl sm:flex', className)} aria-hidden>
+    <div className={cn('tp-float absolute z-10 hidden items-center gap-2 rounded-2xl bg-white py-2 pr-3.5 pl-2 text-sm font-semibold text-slate-900 shadow-xl sm:flex', className)} aria-hidden>
       <span className={cn('flex size-7 items-center justify-center rounded-xl', tone)}>{icon}</span>{children}
     </div>
   )
@@ -321,7 +498,7 @@ const MARQUEE: Array<[ReactNode, string]> = [
 function Marquee() {
   const row = [...MARQUEE, ...MARQUEE]
   return (
-    <div className="relative -mt-10 -rotate-2 overflow-hidden bg-brand-600 py-4 text-white shadow-float" aria-label="Recursos do Titan Pool">
+    <div className="relative z-10 -my-6 -rotate-2 overflow-hidden bg-brand-600 py-4 text-white shadow-float" aria-label="Recursos do Titan Pool">
       <div className="tp-marquee flex w-max gap-10 pr-10">
         {row.map(([icon, t], i) => (
           <span key={i} className="flex shrink-0 items-center gap-2.5 text-lg font-semibold whitespace-nowrap" aria-hidden={i >= MARQUEE.length}>
@@ -471,7 +648,7 @@ function AnimatedPhone() {
   const next = DAY_STOPS[done]
   const path = `M60 88 ${DAY_STOPS.map((s) => `L${s.x} ${s.y}`).join(' ')}`
   return (
-    <div ref={ref} className="tp-page relative mx-auto w-full max-w-[310px]" aria-label="Exemplo da agenda do dia no app" role="img">
+    <div ref={ref} className="tp-page relative mx-auto w-full max-w-[310px] text-slate-900" aria-label="Exemplo da agenda do dia no app" role="img">
       <div className="absolute -inset-10 -z-10 rounded-full bg-brand-300/30 blur-3xl" />
       <div className="rounded-[2.8rem] border-[10px] border-slate-900 bg-canvas p-3 shadow-2xl">
         <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300" />

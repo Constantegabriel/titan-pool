@@ -8,6 +8,7 @@ import { type OrgInfo, accessLabel } from '@/domain/account'
 import { whatsappLink } from '@/domain/format'
 import { clearPending, readPending, savePending, useAccount } from '@/lib/account-context'
 import { cn } from '@/lib/cn'
+import { Bubbles, WaterBackground, Waves } from '@/components/water'
 
 /** Mensagens do Supabase Auth em português. */
 function authMessage(error: { message: string } | null | undefined): string {
@@ -35,57 +36,66 @@ const BENEFITS: Array<[ReactNode, string, string]> = [
   [<Wallet key="w" className="size-5" />, 'Financeiro em dia', 'Mensalidades, compras e lucro de cada mês.'],
 ]
 
-/** Moldura das telas de entrada: painel da marca com prévia animada no notebook, cabeçalho azul no celular. */
+/**
+ * Moldura das telas de entrada. Notebook: água animada na tela inteira, a marca à esquerda e o
+ * formulário num cartão flutuando. Celular: cabeçalho de água com ondas e o cartão logo abaixo.
+ */
 function AuthShell({ title, subtitle, children, footer, tabs }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode; tabs?: 'login' | 'signup' }) {
   return (
-    <div className="min-h-svh bg-white md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-      <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-10 text-white md:flex md:flex-col">
-        <div className="tp-blob absolute -top-24 -right-24 size-80 rounded-full bg-brand-400/30 blur-3xl" aria-hidden />
-        <div className="tp-blob absolute bottom-10 -left-20 size-72 rounded-full bg-sky-300/20 blur-3xl [animation-delay:-6s]" aria-hidden />
-        <Waves />
-        <Link to="/inicio" className="relative inline-flex items-center gap-2.5">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur"><Droplets className="size-5" aria-hidden /></span>
-          <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+    <div className="relative isolate min-h-svh overflow-hidden bg-canvas md:bg-transparent">
+      <WaterBackground className="hidden md:block" />
+      <Bubbles count={12} className="hidden md:block" />
+      <div className="absolute inset-0 hidden bg-gradient-to-r from-brand-950/40 via-transparent to-transparent md:block" aria-hidden />
+
+      {/* Celular: cabeçalho de água */}
+      <div className="relative isolate overflow-hidden px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-24 text-white md:hidden">
+        <WaterBackground />
+        <Link to="/inicio" className="relative inline-flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur"><Droplets className="size-5" aria-hidden /></span>
+          <span className="text-lg font-bold">Titan Pool</span>
         </Link>
-        <div className="relative my-auto max-w-md py-10">
-          <h2 className="text-4xl leading-tight font-extrabold tracking-tight xl:text-5xl">O dia do piscineiro, organizado no celular.</h2>
-          <ul className="mt-8 space-y-5">
+        <p className="relative mt-3 max-w-xs text-[15px] text-white/90">Agenda, rota, relatórios e financeiro da sua piscina em um só lugar.</p>
+        <Waves color="#f4f7fc" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-svh max-w-6xl flex-col md:flex-row md:items-center md:gap-10 md:px-8 lg:gap-16">
+        {/* Notebook: a marca */}
+        <div className="hidden flex-1 flex-col text-white md:flex">
+          <Link to="/inicio" className="inline-flex w-fit items-center gap-2.5">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur"><Droplets className="size-5" aria-hidden /></span>
+            <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+          </Link>
+          <h2 className="tp-rise mt-10 text-4xl leading-[1.05] font-extrabold tracking-tight [text-shadow:0_2px_30px_rgb(11_58_168/0.35)] lg:text-[3.4rem]">
+            Mais piscinas por dia.<br /><span className="text-sky-200">Menos papel.</span>
+          </h2>
+          <ul className="mt-8 space-y-4">
             {BENEFITS.map(([icon, t, d], i) => (
               <li key={t} className="tp-rise flex gap-3" style={{ animationDelay: `${150 + i * 120}ms` }}>
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">{icon}</span>
-                <span><span className="block font-semibold">{t}</span><span className="block text-sm text-brand-100">{d}</span></span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">{icon}</span>
+                <span><span className="block font-semibold">{t}</span><span className="block text-sm text-white/80">{d}</span></span>
               </li>
             ))}
           </ul>
+          <div className="mt-10 hidden lg:block"><AuthPreview /></div>
         </div>
-        <AuthPreview />
-        <p className="relative mt-6 text-sm text-brand-200">© {YEAR} Titan Pool</p>
-      </aside>
 
-      <div className="flex min-h-svh flex-col">
-        <div className="relative overflow-hidden bg-gradient-to-br from-brand-600 to-brand-800 px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-16 text-white md:hidden">
-          <Waves />
-          <Link to="/inicio" className="relative inline-flex items-center gap-2">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-white/15"><Droplets className="size-5" aria-hidden /></span>
-            <span className="text-lg font-bold">Titan Pool</span>
-          </Link>
-          <p className="relative mt-3 max-w-xs text-sm text-brand-100">Agenda, rota, relatórios e financeiro da sua piscina em um só lugar.</p>
-        </div>
-        <div className="-mt-10 flex flex-1 flex-col px-4 pb-10 md:mt-0 md:items-center md:justify-center md:px-10">
-          <div className="tp-page w-full rounded-3xl bg-white p-5 shadow-card md:max-w-sm md:p-0 md:shadow-none">
+        {/* Formulário */}
+        <div className="relative -mt-16 flex flex-1 justify-center px-4 pb-10 md:mt-0 md:max-w-md md:px-0 md:py-10">
+          <div className="tp-page w-full rounded-[2rem] bg-white p-6 shadow-[0_30px_80px_-20px_rgb(4_19_63/0.55)] md:p-8">
             {tabs && (
               <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Entrar ou criar conta">
                 <Link to="/entrar" role="tab" aria-selected={tabs === 'login'} className={cn('flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition-colors', tabs === 'login' ? 'bg-white text-brand-700 shadow-card' : 'text-slate-500 hover:text-slate-700')}>Entrar</Link>
                 <Link to="/cadastro" role="tab" aria-selected={tabs === 'signup'} className={cn('flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition-colors', tabs === 'signup' ? 'bg-white text-brand-700 shadow-card' : 'text-slate-500 hover:text-slate-700')}>Criar conta</Link>
               </div>
             )}
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <h1 className="text-2xl font-bold tracking-tight md:text-[1.7rem]">{title}</h1>
             {subtitle && <p className="mt-1.5 text-[15px] text-slate-500">{subtitle}</p>}
             <div className="mt-6">{children}</div>
             {footer && <div className="mt-6 border-t border-slate-100 pt-5 text-center text-sm text-slate-600">{footer}</div>}
           </div>
         </div>
       </div>
+      <p className="relative pb-6 text-center text-xs text-slate-400 md:absolute md:bottom-5 md:left-8 md:pb-0 md:text-left md:text-white/60">© {YEAR} Titan Pool</p>
     </div>
   )
 }
@@ -108,16 +118,6 @@ function AuthPreview() {
 }
 
 const YEAR = new Date().getFullYear()
-
-/** Ondas decorativas do painel azul. */
-function Waves() {
-  return (
-    <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full text-white/10" viewBox="0 0 400 160" preserveAspectRatio="none" aria-hidden>
-      <path d="M0 80 C 60 50, 120 110, 200 80 S 340 50, 400 80 L400 160 L0 160Z" fill="currentColor" />
-      <path d="M0 110 C 70 85, 130 135, 210 110 S 330 85, 400 110 L400 160 L0 160Z" fill="currentColor" />
-    </svg>
-  )
-}
 
 /** Senha com botão de mostrar/ocultar. */
 function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
