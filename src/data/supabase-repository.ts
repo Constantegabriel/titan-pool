@@ -44,6 +44,12 @@ export class SupabaseRepository implements Repository {
   private readonly sb: SupabaseClient
   constructor(sb: SupabaseClient) {
     this.sb = sb
+    // Métodos podem ser passados soltos (ex.: queryFn: repository.listClients); amarra o `this`.
+    const proto = Object.getPrototypeOf(this) as Record<string, unknown>
+    for (const name of Object.getOwnPropertyNames(proto)) {
+      const fn = proto[name]
+      if (name !== 'constructor' && typeof fn === 'function') (this as unknown as Record<string, unknown>)[name] = fn.bind(this)
+    }
   }
 
   private async rows(query: PromiseLike<{ data: unknown; error: unknown }>): Promise<Row[]> {

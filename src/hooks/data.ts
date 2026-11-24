@@ -19,8 +19,8 @@ export const keys = {
   transactionsByPeriod: (period: Period) => ['transactions', period] as const,
 }
 
-export const useClients = () => useQuery({ queryKey: keys.clients, queryFn: repository.listClients })
-export const usePools = () => useQuery({ queryKey: keys.pools, queryFn: repository.listPools })
+export const useClients = () => useQuery({ queryKey: keys.clients, queryFn: () => repository.listClients() })
+export const usePools = () => useQuery({ queryKey: keys.pools, queryFn: () => repository.listPools() })
 
 export const useVisit = (id: Id) => useQuery({ queryKey: keys.visit(id), queryFn: () => repository.getVisit(id) })
 export const useVisitsInRange = (from: IsoDate, to: IsoDate) =>
@@ -34,6 +34,22 @@ export const useChargesByPeriod = (period: Period) =>
 export const useChargesByClient = (clientId: Id) =>
   useQuery({ queryKey: keys.chargesByClient(clientId), queryFn: () => repository.listChargesByClient(clientId, 12) })
 
+/** Coloca os registros salvos direto no cache, para a próxima tela já enxergá-los sem esperar a rede. */
+function useUpsertCache() {
+  const qc = useQueryClient()
+  return <T extends { id: Id }>(key: readonly unknown[], items: T[]) =>
+    qc.setQueryData<T[]>(key, (old) => {
+      if (!old) return old
+      const next = [...old]
+      for (const item of items) {
+        const i = next.findIndex((x) => x.id === item.id)
+        if (i >= 0) next[i] = item
+        else next.push(item)
+      }
+      return next
+    })
+}
+
 function useInvalidate() {
   const qc = useQueryClient()
   return (...prefixes: string[]) => Promise.all(prefixes.map((p) => qc.invalidateQueries({ queryKey: [p] })))
@@ -41,9 +57,13 @@ function useInvalidate() {
 
 export function useSaveClient() {
   const invalidate = useInvalidate()
+  const cache = useUpsertCache()
   return useMutation({
     mutationFn: (client: Client) => repository.saveClient(client),
-    onSuccess: () => invalidate('clients'),
+    onSuccess: (client) => {
+      cache(keys.clients, [client])
+      void invalidate('clients')
+    },
   })
 }
 
@@ -57,17 +77,25 @@ export function useDeleteClient() {
 
 export function useSavePools() {
   const invalidate = useInvalidate()
+  const cache = useUpsertCache()
   return useMutation({
     mutationFn: (pools: Pool[]) => repository.savePools(pools),
-    onSuccess: () => invalidate('pools'),
+    onSuccess: (pools) => {
+      cache(keys.pools, pools)
+      void invalidate('pools')
+    },
   })
 }
 
 export function useSavePool() {
   const invalidate = useInvalidate()
+  const cache = useUpsertCache()
   return useMutation({
     mutationFn: (pool: Pool) => repository.savePool(pool),
-    onSuccess: () => invalidate('pools'),
+    onSuccess: (pool) => {
+      cache(keys.pools, [pool])
+      void invalidate('pools')
+    },
   })
 }
 
@@ -127,7 +155,7 @@ export function useSaveCharge() {
   })
 }
 
-export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: repository.getSettings, staleTime: Infinity })
+export const useSettings = () => useQuery({ queryKey: keys.settings, queryFn: () => repository.getSettings(), staleTime: Infinity })
 export function useSaveSettings() {
   const qc = useQueryClient()
   return useMutation({
@@ -136,20 +164,34 @@ export function useSaveSettings() {
   })
 }
 
-export const useSuppliers = () => useQuery({ queryKey: keys.suppliers, queryFn: repository.listSuppliers })
+export const useSuppliers = () => useQuery({ queryKey: keys.suppliers, queryFn: () => repository.listSuppliers() })
 export function useSaveSupplier() {
   const invalidate = useInvalidate()
-  return useMutation({ mutationFn: (s: Supplier) => repository.saveSupplier(s), onSuccess: () => invalidate('suppliers') })
+  const cache = useUpsertCache()
+  return useMutation({
+    mutationFn: (s: Supplier) => repository.saveSupplier(s),
+    onSuccess: (s) => {
+      cache(keys.suppliers, [s])
+      void invalidate('suppliers')
+    },
+  })
 }
 export function useDeleteSupplier() {
   const invalidate = useInvalidate()
   return useMutation({ mutationFn: (id: Id) => repository.deleteSupplier(id), onSuccess: () => invalidate('suppliers', 'purchases', 'purchase') })
 }
 
-export const useCatalog = () => useQuery({ queryKey: keys.catalog, queryFn: repository.listCatalog })
+export const useCatalog = () => useQuery({ queryKey: keys.catalog, queryFn: () => repository.listCatalog() })
 export function useSaveCatalogItems() {
   const invalidate = useInvalidate()
-  return useMutation({ mutationFn: (items: CatalogItem[]) => repository.saveCatalogItems(items), onSuccess: () => invalidate('catalog') })
+  const cache = useUpsertCache()
+  return useMutation({
+    mutationFn: (items: CatalogItem[]) => repository.saveCatalogItems(items),
+    onSuccess: (items) => {
+      cache(keys.catalog, items)
+      void invalidate('catalog')
+    },
+  })
 }
 export function useDeleteCatalogItem() {
   const invalidate = useInvalidate()
