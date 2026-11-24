@@ -171,37 +171,39 @@ export function LandingPage() {
       </header>
 
       {/* Abertura: fundo branco com detalhes de água bem leves */}
-      <section className="relative isolate overflow-hidden bg-white pt-16 text-slate-900">
+      <section data-hero className="relative isolate overflow-hidden bg-white pt-16 text-slate-900 lg:flex lg:h-svh lg:min-h-[600px] lg:flex-col">
         <PoolBackdrop />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-36 md:grid-cols-12 md:pt-20 md:pb-44">
+        <div data-hero-content className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-14 pb-36 md:grid-cols-12 md:pt-20 md:pb-44 lg:min-h-0 lg:flex-1 lg:pt-2 lg:pb-24">
           <div className="md:col-span-7">
             <p className="tp-rise inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3.5 py-1.5 text-sm font-semibold text-brand-700">
               <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex size-2 rounded-full bg-emerald-500" /></span>
               O app do piscineiro
             </p>
-            <h1 className="tp-rise mt-6 text-[2.8rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] md:text-[4.4rem]">
+            <h1 className="tp-rise mt-6 text-[2.8rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] md:text-[4.4rem] lg:[@media(max-height:860px)]:text-[3.6rem] lg:[@media(max-height:740px)]:text-[3.1rem]">
               Mais piscinas por dia.<br /><span className="bg-gradient-to-r from-brand-600 to-sky-500 bg-clip-text text-transparent">Menos tempo no volante.</span>
             </h1>
-            <p className="tp-rise mt-6 max-w-xl text-lg text-slate-600 [animation-delay:160ms] md:text-xl">
+            <p className="tp-rise mt-6 max-w-xl text-lg text-slate-600 [animation-delay:160ms] md:text-xl lg:[@media(max-height:860px)]:mt-4 lg:[@media(max-height:860px)]:text-lg">
               O Titan Pool organiza sua agenda, monta a melhor rota, gera o relatório da piscina e cobra seus clientes. Você trabalha menos no papel e mais na água.
             </p>
-            <div className="tp-rise mt-9 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row">
+            <div className="tp-rise mt-9 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row lg:[@media(max-height:860px)]:mt-6">
               <Cta {...cta} />
               <a href="#como-funciona" className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-base font-semibold text-slate-700 hover:border-brand-200 hover:bg-brand-50/50">
                 Ver como funciona
               </a>
             </div>
-            <ul className="tp-rise mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 [animation-delay:320ms]">
+            <ul className="tp-rise mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 [animation-delay:320ms] lg:[@media(max-height:860px)]:mt-5">
               {['Teste grátis sem cartão', 'Pronto em 5 minutos', 'Celular e notebook'].map((t) => (
                 <li key={t} className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" aria-hidden />{t}</li>
               ))}
             </ul>
           </div>
           <div ref={phoneRef} className="relative md:col-span-5">
+            <div className="origin-center lg:[@media(max-height:860px)]:scale-[0.86] lg:[@media(max-height:740px)]:scale-[0.74]">
             <AnimatedPhone />
             <FloatChip className="top-6 -left-6 [animation-delay:-1s] md:-left-16" icon={<Navigation className="size-4" />} tone="bg-brand-600 text-white">Rota otimizada · 22 km</FloatChip>
             <FloatChip className="top-1/2 -right-2 [animation-delay:-3s] md:-right-10" icon={<BellRing className="size-4" />} tone="bg-amber-400 text-white">Lembrete de mensalidade</FloatChip>
             <FloatChip className="bottom-10 -left-4 [animation-delay:-5s] md:-left-20" icon={<FlaskConical className="size-4" />} tone="bg-emerald-500 text-white">pH 7,4 · ideal</FloatChip>
+            </div>
           </div>
         </div>
         <Waves />
