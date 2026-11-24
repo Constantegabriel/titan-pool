@@ -1,5 +1,7 @@
 import { CalendarDays, Menu, ShoppingBag, Users, Wallet } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { trialDaysLeft } from '@/domain/account'
+import { useAccount } from '@/lib/account-context'
 import { cn } from '@/lib/cn'
 
 const NAV = [
@@ -10,9 +12,23 @@ const NAV = [
   { to: '/mais', label: 'Mais', icon: Menu, end: false },
 ]
 
+function TrialBanner() {
+  const { account } = useAccount()
+  const org = account?.org
+  if (!org || org.status !== 'trialing') return null
+  const left = trialDaysLeft(org)
+  if (left === null || left > 5) return null
+  return (
+    <Link to="/mais" className="block bg-brand-600 px-4 py-2 text-center text-[13px] font-medium text-white">
+      {left <= 0 ? 'Seu teste grátis termina hoje' : `Seu teste grátis termina em ${left} ${left === 1 ? 'dia' : 'dias'}`} · ver plano
+    </Link>
+  )
+}
+
 export function Layout() {
   return (
     <div className="min-h-svh">
+      <TrialBanner />
       <main className="mx-auto max-w-2xl px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-32">
         <Outlet />
       </main>
