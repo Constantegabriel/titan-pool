@@ -1,8 +1,26 @@
-import { CalendarDays, CalendarPlus, Droplets, Menu, ShieldCheck, ShoppingBag, Users, Wallet } from 'lucide-react'
+import { Building2, CalendarDays, CalendarPlus, Droplets, ListChecks, Menu, ShieldCheck, ShoppingBag, Store, UserCog, Users, Wallet } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { accessLabel, trialDaysLeft } from '@/domain/account'
 import { useAccount } from '@/lib/account-context'
 import { cn } from '@/lib/cn'
+
+/** Menu lateral do notebook: sem "Mais" — cada item tem o seu atalho. */
+const SIDEBAR_GROUPS = [
+  { title: null, items: [
+    { to: '/', label: 'Agenda', icon: CalendarDays, end: true },
+    { to: '/clientes', label: 'Clientes', icon: Users, end: false },
+    { to: '/compras', label: 'Compras', icon: ShoppingBag, end: false },
+    { to: '/financeiro', label: 'Financeiro', icon: Wallet, end: false },
+  ] },
+  { title: 'Cadastros', items: [
+    { to: '/mais/fornecedores', label: 'Fornecedores', icon: Store, end: false },
+    { to: '/mais/itens', label: 'Lista de itens', icon: ListChecks, end: false },
+  ] },
+  { title: 'Configurações', items: [
+    { to: '/mais/ajustes', label: 'Empresa e roteiro', icon: Building2, end: false },
+    { to: '/mais', label: 'Conta e dados', icon: UserCog, end: true },
+  ] },
+]
 
 const NAV = [
   { to: '/', label: 'Agenda', icon: CalendarDays, end: true },
@@ -41,18 +59,25 @@ function Sidebar() {
           <CalendarPlus className="size-4" aria-hidden /> Agendar visita
         </Link>
       </div>
-      <nav aria-label="Principal" className="mt-5 flex-1 space-y-1 px-3">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end}
-            className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors', isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>
-            {({ isActive }) => (<><Icon className="size-5" strokeWidth={isActive ? 2.3 : 1.9} aria-hidden />{label}</>)}
-          </NavLink>
+      <nav aria-label="Principal" className="mt-5 flex-1 overflow-y-auto px-3">
+        {SIDEBAR_GROUPS.map((g) => (
+          <div key={g.title ?? 'main'} className={g.title ? 'mt-6' : undefined}>
+            {g.title && <p className="mb-1.5 px-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">{g.title}</p>}
+            <div className="space-y-0.5">
+              {g.items.map(({ to, label, icon: Icon, end }) => (
+                <NavLink key={to} to={to} end={end}
+                  className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition-colors', g.title ? 'text-sm' : 'text-[15px]', isActive ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900')}>
+                  {({ isActive }) => (<><Icon className={g.title ? 'size-[18px]' : 'size-5'} strokeWidth={isActive ? 2.3 : 1.9} aria-hidden />{label}</>)}
+                </NavLink>
+              ))}
+              {g.title === 'Configurações' && account?.is_admin && (
+                <Link to="/admin" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  <ShieldCheck className="size-[18px]" aria-hidden /> Super admin
+                </Link>
+              )}
+            </div>
+          </div>
         ))}
-        {account?.is_admin && (
-          <Link to="/admin" className="mt-3 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold text-slate-600 hover:bg-slate-50">
-            <ShieldCheck className="size-5" aria-hidden /> Super admin
-          </Link>
-        )}
       </nav>
       {org && (
         <Link to="/mais" className="m-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 hover:border-brand-200">

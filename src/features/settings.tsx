@@ -2,7 +2,7 @@ import { Building2, ChevronRight, Download, HardDrive, ListChecks, LogOut, Messa
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, type ReactNode, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LocationPicker } from '@/components/location-picker'
+import { AddressField } from '@/components/address-field'
 import { Badge, Button, ButtonLink, Card, ErrorState, ExternalButton, Field, Input, ListCard, Loading, PageHeader, SectionTitle } from '@/components/ui'
 import { deviceRepository, repository, type Snapshot } from '@/data'
 import { accessLabel } from '@/domain/account'
@@ -68,12 +68,15 @@ export function MorePage() {
 
   return (
     <>
-      <PageHeader title="Mais" />
+      <div className="lg:hidden"><PageHeader title="Mais" /></div>
+      <div className="hidden lg:block"><PageHeader title="Conta e dados" subtitle="Sua conta, backup e dados salvos no aparelho" /></div>
+      <div className="lg:hidden">
       <ListCard>
         <MenuLink to="/mais/fornecedores" icon={<Store className="size-5" />} title="Fornecedores" hint="Lojas e distribuidores com WhatsApp" />
         <MenuLink to="/mais/itens" icon={<ListChecks className="size-5" />} title="Lista de itens" hint="Produtos e materiais que você compra" />
         <MenuLink to="/mais/ajustes" icon={<Building2 className="size-5" />} title="Empresa e roteiro" hint="Nome nos PDFs, horário de saída, ponto de partida" />
       </ListCard>
+      </div>
 
       <AccountCard />
 
@@ -115,6 +118,8 @@ function SettingsForm({ initial }: { initial: Settings }) {
   const [s, setS] = useState(initial)
   const save = useSaveSettings()
   const [saved, setSaved] = useState(false)
+  // Só a localização é guardada; os campos servem para achá-la.
+  const [baseAddress, setBaseAddress] = useState({ address: '', area: '' })
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => { setSaved(false); setS((x) => ({ ...x, [k]: v })) }
 
   async function submit(e: FormEvent) {
@@ -145,7 +150,14 @@ function SettingsForm({ initial }: { initial: Settings }) {
             <Field label="Km/h médio"><Input type="number" inputMode="numeric" min={5} max={120} required value={s.avgSpeedKmh} onChange={(e) => set('avgSpeedKmh', Number(e.target.value))} /></Field>
           </div>
           <Field label="Nome do ponto de partida"><Input placeholder="Ex.: Casa, Depósito" value={s.baseLabel} onChange={(e) => set('baseLabel', e.target.value)} /></Field>
-          <LocationPicker value={s.base} address={s.baseLabel} onChange={(base) => set('base', base)} />
+          <AddressField
+            areaLabel="Bairro e cidade da partida"
+            value={{ address: baseAddress.address, area: baseAddress.area, point: s.base }}
+            onChange={(p) => {
+              setBaseAddress((b) => ({ address: p.address ?? b.address, area: p.area ?? b.area }))
+              if (p.point !== undefined) set('base', p.point)
+            }}
+          />
         </Card>
         {save.error && <ErrorState error={save.error} />}
         <Button type="submit" className="w-full" loading={save.isPending}>{saved ? 'Salvo ✓' : 'Salvar'}</Button>

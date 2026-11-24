@@ -19,8 +19,8 @@ export const keys = {
   transactionsByPeriod: (period: Period) => ['transactions', period] as const,
 }
 
-export const useClients = () => useQuery({ queryKey: keys.clients, queryFn: () => repository.listClients() })
-export const usePools = () => useQuery({ queryKey: keys.pools, queryFn: () => repository.listPools() })
+export const useClients = (opts: { refetchOnMount?: 'always' } = {}) => useQuery({ queryKey: keys.clients, queryFn: () => repository.listClients(), ...opts })
+export const usePools = (opts: { refetchOnMount?: 'always' } = {}) => useQuery({ queryKey: keys.pools, queryFn: () => repository.listPools(), ...opts })
 
 export const useVisit = (id: Id) => useQuery({ queryKey: keys.visit(id), queryFn: () => repository.getVisit(id) })
 export const useVisitsInRange = (from: IsoDate, to: IsoDate) =>

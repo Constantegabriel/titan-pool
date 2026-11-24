@@ -1,5 +1,5 @@
 import { ChevronLeft, LoaderCircle } from 'lucide-react'
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { Link, type LinkProps } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 
@@ -69,7 +69,7 @@ export function Field({ label, hint, children, className }: { label: string; hin
   )
 }
 
-export const Input = ({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) => (
+export const Input = ({ className, ...props }: React.ComponentProps<'input'>) => (
   <input className={cn(control, 'h-11', className)} {...props} />
 )
 export const Textarea = ({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
@@ -95,7 +95,7 @@ export function PageHeader({ title, subtitle, back, action }: { title: string; s
   return (
     <header className="mb-5 flex items-start gap-2">
       {back && (
-        <Link to={back} className="-ml-1.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" aria-label="Voltar">
+        <Link to={back} className={cn(back === '/mais' && 'lg:hidden', '-ml-1.5 mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50')} aria-label="Voltar">
           <ChevronLeft className="size-5" />
         </Link>
       )}

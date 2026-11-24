@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { CalendarDays, Droplets, Eye, EyeOff, FlaskConical, Lock, LogOut, MailCheck, MessageCircle, Wallet } from 'lucide-react'
+import { CalendarDays, Check, Droplets, Eye, EyeOff, FlaskConical, Lock, LogOut, Mail, MailCheck, MessageCircle, Wallet } from 'lucide-react'
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, ErrorState, ExternalButton, Field, Input, Loading } from '@/components/ui'
@@ -7,6 +7,7 @@ import { rpc, supabase } from '@/data'
 import { type OrgInfo, accessLabel } from '@/domain/account'
 import { whatsappLink } from '@/domain/format'
 import { clearPending, readPending, savePending, useAccount } from '@/lib/account-context'
+import { cn } from '@/lib/cn'
 
 /** Mensagens do Supabase Auth em português. */
 function authMessage(error: { message: string } | null | undefined): string {
@@ -34,28 +35,31 @@ const BENEFITS: Array<[ReactNode, string, string]> = [
   [<Wallet key="w" className="size-5" />, 'Financeiro em dia', 'Mensalidades, compras e lucro de cada mês.'],
 ]
 
-/** Moldura das telas de entrada: painel da marca no notebook, cabeçalho azul no celular. */
-function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
+/** Moldura das telas de entrada: painel da marca com prévia animada no notebook, cabeçalho azul no celular. */
+function AuthShell({ title, subtitle, children, footer, tabs }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode; tabs?: 'login' | 'signup' }) {
   return (
-    <div className="min-h-svh bg-white md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div className="min-h-svh bg-white md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-10 text-white md:flex md:flex-col">
+        <div className="tp-blob absolute -top-24 -right-24 size-80 rounded-full bg-brand-400/30 blur-3xl" aria-hidden />
+        <div className="tp-blob absolute bottom-10 -left-20 size-72 rounded-full bg-sky-300/20 blur-3xl [animation-delay:-6s]" aria-hidden />
         <Waves />
         <Link to="/inicio" className="relative inline-flex items-center gap-2.5">
           <span className="flex size-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur"><Droplets className="size-5" aria-hidden /></span>
           <span className="text-xl font-bold tracking-tight">Titan Pool</span>
         </Link>
-        <div className="relative mt-auto max-w-md">
-          <h2 className="text-4xl font-extrabold leading-tight tracking-tight">O dia do piscineiro, organizado no celular.</h2>
+        <div className="relative my-auto max-w-md py-10">
+          <h2 className="text-4xl leading-tight font-extrabold tracking-tight xl:text-5xl">O dia do piscineiro, organizado no celular.</h2>
           <ul className="mt-8 space-y-5">
-            {BENEFITS.map(([icon, t, d]) => (
-              <li key={t} className="flex gap-3">
+            {BENEFITS.map(([icon, t, d], i) => (
+              <li key={t} className="tp-rise flex gap-3" style={{ animationDelay: `${150 + i * 120}ms` }}>
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">{icon}</span>
                 <span><span className="block font-semibold">{t}</span><span className="block text-sm text-brand-100">{d}</span></span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative mt-10 text-sm text-brand-200">© {YEAR} Titan Pool</p>
+        <AuthPreview />
+        <p className="relative mt-6 text-sm text-brand-200">© {YEAR} Titan Pool</p>
       </aside>
 
       <div className="flex min-h-svh flex-col">
@@ -65,9 +69,16 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
             <span className="flex size-9 items-center justify-center rounded-xl bg-white/15"><Droplets className="size-5" aria-hidden /></span>
             <span className="text-lg font-bold">Titan Pool</span>
           </Link>
+          <p className="relative mt-3 max-w-xs text-sm text-brand-100">Agenda, rota, relatórios e financeiro da sua piscina em um só lugar.</p>
         </div>
         <div className="-mt-10 flex flex-1 flex-col px-4 pb-10 md:mt-0 md:items-center md:justify-center md:px-10">
           <div className="tp-page w-full rounded-3xl bg-white p-5 shadow-card md:max-w-sm md:p-0 md:shadow-none">
+            {tabs && (
+              <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl bg-slate-100 p-1" role="tablist" aria-label="Entrar ou criar conta">
+                <Link to="/entrar" role="tab" aria-selected={tabs === 'login'} className={cn('flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition-colors', tabs === 'login' ? 'bg-white text-brand-700 shadow-card' : 'text-slate-500 hover:text-slate-700')}>Entrar</Link>
+                <Link to="/cadastro" role="tab" aria-selected={tabs === 'signup'} className={cn('flex h-10 items-center justify-center rounded-xl text-sm font-semibold transition-colors', tabs === 'signup' ? 'bg-white text-brand-700 shadow-card' : 'text-slate-500 hover:text-slate-700')}>Criar conta</Link>
+              </div>
+            )}
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
             {subtitle && <p className="mt-1.5 text-[15px] text-slate-500">{subtitle}</p>}
             <div className="mt-6">{children}</div>
@@ -75,6 +86,23 @@ function AuthShell({ title, subtitle, children, footer }: { title: string; subti
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Cartões flutuando no painel azul: o que a pessoa vai ver depois de entrar. */
+function AuthPreview() {
+  return (
+    <div className="relative h-40" aria-hidden>
+      <div className="tp-float absolute left-0 top-2 w-64 rounded-2xl bg-white p-3.5 text-slate-900 shadow-2xl">
+        <p className="flex justify-between text-[11px] font-medium text-slate-500"><span>Próxima visita · 2ª do dia</span><span>10 min</span></p>
+        <div className="mt-1 flex items-end justify-between"><p className="font-bold">Cond. Vila Azul</p><p className="text-2xl font-bold text-brand-600">09:00</p></div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="tp-progress h-full rounded-full bg-brand-500" /></div>
+      </div>
+      <div className="tp-float absolute top-16 left-56 flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 shadow-2xl [animation-delay:-2s]">
+        <span className="flex size-7 items-center justify-center rounded-full bg-[#25d366] text-white"><Check className="size-4" /></span>Relatório enviado
+      </div>
+      <div className="tp-float absolute top-0 left-72 hidden rounded-2xl bg-white/15 px-3 py-2 text-sm font-semibold backdrop-blur xl:block [animation-delay:-4s]">22,5 km · 5 visitas</div>
     </div>
   )
 }
@@ -129,6 +157,15 @@ export function LoginPage() {
     if (error) setMsg({ tone: 'error', text: authMessage(error) })
   }
 
+  /** Link de acesso no e-mail: entra sem digitar a senha. */
+  async function magicLink() {
+    if (!email.trim()) return setMsg({ tone: 'error', text: 'Digite seu e-mail acima para receber o link de acesso.' })
+    setBusy(true)
+    const { error } = await supabase!.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/` } })
+    setBusy(false)
+    setMsg(error ? { tone: 'error', text: authMessage(error) } : { tone: 'info', text: 'Enviamos um link de acesso. Abra o e-mail neste aparelho e toque no link para entrar.' })
+  }
+
   async function forgot() {
     if (!email.trim()) return setMsg({ tone: 'error', text: 'Digite seu e-mail acima para receber o link.' })
     setBusy(true)
@@ -138,13 +175,16 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell title="Bem-vindo de volta" subtitle="Entre para ver a agenda e os dados da sua empresa." footer={<>Ainda não tem conta? <Link to="/cadastro" className="font-semibold text-brand-700">Teste grátis</Link></>}>
+    <AuthShell tabs="login" title="Bem-vindo de volta" subtitle="Entre para ver a agenda e os dados da sua empresa.">
       <form onSubmit={submit} className="space-y-4">
         <Field label="E-mail"><Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         <Field label="Senha"><PasswordInput autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
         {msg && <Message tone={msg.tone}>{msg.text}</Message>}
         <Button type="submit" className="h-12 w-full text-base" loading={busy}>Entrar</Button>
-        <button type="button" onClick={forgot} className="block w-full text-center text-sm font-medium text-slate-500 hover:text-brand-700">Esqueci minha senha</button>
+        <div className="flex items-center justify-between text-sm">
+          <button type="button" onClick={forgot} className="font-medium text-slate-500 hover:text-brand-700">Esqueci minha senha</button>
+          <button type="button" onClick={magicLink} className="inline-flex items-center gap-1.5 font-semibold text-brand-700 hover:text-brand-800"><Mail className="size-4" aria-hidden />Entrar sem senha</button>
+        </div>
       </form>
     </AuthShell>
   )
@@ -205,11 +245,12 @@ export function SignupPage() {
   const invalidInvite = invite && inviteInfo.isSuccess && (!inviteInfo.data || !inviteInfo.data.valid)
   return (
     <AuthShell
+      tabs={invite ? undefined : 'signup'}
       title={invite ? 'Ativar seu acesso' : `Teste grátis por ${trialDays} dias`}
       subtitle={invite
         ? (inviteInfo.data ? <>Você foi convidado para a conta <strong>{inviteInfo.data.org_name}</strong>. Crie seu login:</> : 'Carregando convite…')
         : 'Sem cartão de crédito. Configure em poucos minutos.'}
-      footer={<>Já tem conta? <Link to="/entrar" className="font-semibold text-brand-700">Entrar</Link></>}
+      footer={invite ? <>Já tem conta? <Link to="/entrar" className="font-semibold text-brand-700">Entrar</Link></> : undefined}
     >
       {invalidInvite ? (
         <Message tone="error">Este link de acesso não é válido ou já foi usado. Peça um novo para o suporte.</Message>

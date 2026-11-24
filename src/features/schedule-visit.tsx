@@ -5,7 +5,14 @@ import { RecurrenceEditor, type RecurrenceValue } from '@/components/recurrence-
 import { Button, Card, ErrorState, Field, Input, Loading, PageHeader, Segmented, Select } from '@/components/ui'
 import { parseIsoDate, today } from '@/domain/dates'
 import { describeRecurrence, hasRecurrence, nextOccurrence } from '@/domain/recurrence'
-import type { Pool } from '@/domain/types'
+import type { Client, Pool } from '@/domain/types'
+import { ClientPicker } from '@/components/client-picker'
+import { newId, nowIso } from '@/data'
+
+const newPoolDraft = (): Pool => ({
+  id: newId(), clientId: '', name: 'Principal', volumeLiters: 0, type: 'vinil', sanitizer: 'cloro', equipment: '', accessNotes: '',
+  recurrence: 'none', visitDays: [], monthDays: [], anchorDate: null, preferredTime: null, routeOrder: 0, serviceMinutes: null, createdAt: nowIso(),
+})
 import { newVisit, useClients, usePools, useSavePool, useSaveVisit } from '@/hooks/data'
 
 type Kind = 'once' | 'recurring'
@@ -13,13 +20,14 @@ type Kind = 'once' | 'recurring'
 /** Agendar visita: única (um dia, com horário opcional) ou fixa (repete toda semana, a cada 2 semanas ou todo mês). */
 export function ScheduleVisitPage() {
   const [params] = useSearchParams()
-  const clients = useClients()
-  const pools = usePools()
+  // Sempre busca de novo ao abrir: um cliente recém-cadastrado precisa aparecer aqui.
+  const clients = useClients({ refetchOnMount: 'always' })
+  const pools = usePools({ refetchOnMount: 'always' })
   if (clients.isPending || pools.isPending) return <Loading />
   if (clients.error ?? pools.error) return <ErrorState error={clients.error ?? pools.error} />
   return (
     <ScheduleForm
-      clients={clients.data!.filter((c) => c.active).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))}
+      clients={clients.data!}
       pools={pools.data!}
       initialDate={params.get('data') ?? today()}
       initialClient={params.get('cliente')}
@@ -30,7 +38,7 @@ export function ScheduleVisitPage() {
 }
 
 function ScheduleForm({ clients, pools, initialDate, initialClient, initialPool, initialKind }: {
-  clients: Array<{ id: string; name: string }>; pools: Pool[]; initialDate: string; initialClient: string | null; initialPool: string | null; initialKind: Kind
+  clients: Client[]; pools: Pool[]; initialDate: string; initialClient: string | null; initialPool: string | null; initialKind: Kind
 }) {
   const navigate = useNavigate()
   const saveVisit = useSaveVisit()
@@ -39,7 +47,11 @@ function ScheduleForm({ clients, pools, initialDate, initialClient, initialPool,
   const [clientId, setClientId] = useState(startPool?.clientId ?? initialClient ?? '')
   const clientPools = useMemo(() => pools.filter((p) => p.clientId === clientId), [pools, clientId])
   const [poolId, setPoolId] = useState(startPool?.id ?? '')
-  const pool = clientPools.find((p) => p.id === poolId) ?? clientPools[0]
+  const client = clients.find((c) => c.id === clientId)
+  const [draftPool] = useState(() => newPoolDraft())
+  // Sem piscina: usa uma "Principal" que é salva junto com o agendamento.
+  const pool: Pool | undefined = clientPools.find((p) => p.id === poolId) ?? clientPools[0] ?? (client ? { ...draftPool, clientId: client.id } : undefined)
+  const poolIsNew = Boolean(pool && !clientPools.some((p) => p.id === pool.id))
   const [kind, setKind] = useState<Kind>(initialKind)
   const [date, setDate] = useState(initialDate)
   const [time, setTime] = useState('')
@@ -61,12 +73,18 @@ function ScheduleForm({ clients, pools, initialDate, initialClient, initialPool,
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!pool) return
+    if (poolIsNew && kind === 'once') {
+      await savePool.mutateAsync({ ...pool, recurrence: 'none', routeOrder: Math.max(0, ...pools.map((p) => p.routeOrder)) + 1 })
+    }
     if (kind === 'once') {
       await saveVisit.mutateAsync(newVisit(pool, date, { status: 'scheduled', time: time || null }))
       navigate(date === today() ? '/' : `/?data=${date}`, { replace: true })
     } else {
       const anchor = currentRule.recurrence === 'biweekly' ? (currentRule.anchorDate ?? date) : null
-      await savePool.mutateAsync({ ...pool, ...currentRule, anchorDate: anchor })
+      await savePool.mutateAsync({
+        ...pool, ...currentRule, anchorDate: anchor,
+        ...(poolIsNew && { routeOrder: Math.max(0, ...pools.map((p) => p.routeOrder)) + 1 }),
+      })
       const first = nextOccurrence(currentRule, today())
       navigate(!first || first === today() ? '/' : `/?data=${first}`, { replace: true })
     }
@@ -77,15 +95,18 @@ function ScheduleForm({ clients, pools, initialDate, initialClient, initialPool,
       <PageHeader title="Agendar visita" back={`/?data=${initialDate}`} />
       <form onSubmit={submit} className="space-y-4">
         <Card className="space-y-4">
-          <Field label="Cliente">
-            <Select required value={clientId} onChange={(e) => { setClientId(e.target.value); setPoolId(''); setRule(null) }}>
-              <option value="" disabled>Escolha o cliente</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </Field>
+          <ClientPicker
+            clients={clients}
+            value={clientId}
+            poolCount={(id) => pools.filter((p) => p.clientId === id).length}
+            onChange={(id) => { setClientId(id); setPoolId(''); setRule(null) }}
+          />
+          {clients.length === 0 && (
+            <p className="text-sm text-slate-500">Nenhum cliente ainda. <Link className="font-semibold text-brand-700" to="/clientes/novo">Cadastrar cliente</Link></p>
+          )}
           {clientId && clientPools.length === 0 && (
-            <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-              Este cliente ainda não tem piscina cadastrada. <Link className="font-semibold underline" to={`/clientes/${clientId}/piscinas/nova`}>Cadastrar piscina</Link>
+            <p className="rounded-xl bg-brand-50 px-3 py-2.5 text-sm text-brand-900">
+              Este cliente ainda não tem piscina: vamos criar a piscina “Principal” ao agendar. Você completa volume e equipamentos depois.
             </p>
           )}
           {clientPools.length > 1 && (

@@ -108,3 +108,30 @@ input[type='number']::-webkit-inner-spin-button {
 @media (prefers-reduced-motion: reduce) {
   .tp-draw { animation: none; stroke-dasharray: none; }
 }
+
+/* Movimentos decorativos (login e landing) */
+@keyframes tp-float-kf { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+@keyframes tp-blob-kf { 0%, 100% { transform: translate(0, 0) scale(1) } 33% { transform: translate(30px, -20px) scale(1.08) } 66% { transform: translate(-20px, 15px) scale(0.95) } }
+@keyframes tp-progress-kf { 0% { transform: scaleX(0.1) } 70%, 100% { transform: scaleX(1) } }
+@keyframes tp-rise-kf { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+@keyframes tp-marquee-kf { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+.tp-float { animation: tp-float-kf 6s ease-in-out infinite; }
+.tp-blob { animation: tp-blob-kf 18s ease-in-out infinite; }
+.tp-progress { transform-origin: left; animation: tp-progress-kf 3.5s ease-in-out infinite; }
+.tp-rise { animation: tp-rise-kf 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.tp-marquee { animation: tp-marquee-kf 40s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .tp-float, .tp-blob, .tp-progress, .tp-marquee { animation: none; }
+}
+
+@keyframes tp-typing-kf { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5 } 30% { transform: translateY(-4px); opacity: 1 } }
+@keyframes tp-bar-kf { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+@keyframes tp-gauge-kf { from { stroke-dashoffset: 100 } }
+.tp-typing { animation: tp-typing-kf 1.2s ease-in-out infinite; }
+.tp-reveal .tp-bar { transform: scaleY(0); transform-origin: bottom; }
+.tp-reveal.is-visible .tp-bar { animation: tp-bar-kf 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.tp-reveal.is-visible .tp-gauge { animation: tp-gauge-kf 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .tp-typing { animation: none; }
+  .tp-reveal .tp-bar { transform: none; }
+}

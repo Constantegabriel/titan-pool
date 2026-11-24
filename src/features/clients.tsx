@@ -1,7 +1,7 @@
 import { CalendarPlus, ChevronRight, MapPin, Pencil, Phone, Plus, Repeat, Search, ShoppingCart, Trash2, Users, Waves } from 'lucide-react'
 import { type FormEvent, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { LocationPicker } from '@/components/location-picker'
+import { AddressField } from '@/components/address-field'
 import {
   Avatar, Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, PageHeader, SectionTitle, Textarea,
 } from '@/components/ui'
@@ -10,7 +10,7 @@ import { chargeState } from '@/domain/billing'
 import { parseIsoDate, today } from '@/domain/dates'
 import { centsToInput, formatLiters, formatMoney, formatPeriod, parseMoney, whatsappLink } from '@/domain/format'
 import type { Client } from '@/domain/types'
-import { useChargesByClient, useClients, useDeleteClient, usePools, useSaveClient, useVisitsByClient } from '@/hooks/data'
+import { useChargesByClient, useClients, useDeleteClient, usePools, useSaveClient, useSettings, useVisitsByClient } from '@/hooks/data'
 import { describeRecurrence, hasRecurrence, nextOccurrence } from '@/domain/recurrence'
 import type { Pool } from '@/domain/types'
 
@@ -93,6 +93,7 @@ export function ClientFormPage() {
 function ClientForm({ initial, isNew }: { initial: Client; isNew: boolean }) {
   const [client, setClient] = useState(initial)
   const [fee, setFee] = useState(centsToInput(initial.monthlyFeeCents))
+  const settings = useSettings()
   const save = useSaveClient()
   const navigate = useNavigate()
   const set = <K extends keyof Client>(key: K, value: Client[K]) => setClient((c) => ({ ...c, [key]: value }))
@@ -114,16 +115,18 @@ function ClientForm({ initial, isNew }: { initial: Client; isNew: boolean }) {
           <Field label="WhatsApp / telefone">
             <Input type="tel" inputMode="tel" placeholder="(11) 98888-7777" value={client.phone} onChange={(e) => set('phone', e.target.value)} />
           </Field>
-          <Field label="Endereço">
-            <Input placeholder="Rua, número" value={client.address} onChange={(e) => set('address', e.target.value)} />
-          </Field>
-          <Field label="Bairro / cidade">
-            <Input value={client.neighborhood} onChange={(e) => set('neighborhood', e.target.value)} />
-          </Field>
-          <LocationPicker
-            value={client.lat !== null && client.lng !== null ? { lat: client.lat, lng: client.lng } : null}
-            address={[client.address, client.neighborhood].filter(Boolean).join(', ')}
-            onChange={(p) => setClient((c) => ({ ...c, lat: p?.lat ?? null, lng: p?.lng ?? null }))}
+        </Card>
+        <SectionTitle>Endereço da piscina</SectionTitle>
+        <Card>
+          <AddressField
+            near={settings.data?.base}
+            value={{ address: client.address, area: client.neighborhood, point: client.lat !== null && client.lng !== null ? { lat: client.lat, lng: client.lng } : null }}
+            onChange={(p) => setClient((c) => ({
+              ...c,
+              ...(p.address !== undefined && { address: p.address }),
+              ...(p.area !== undefined && { neighborhood: p.area }),
+              ...(p.point !== undefined && { lat: p.point?.lat ?? null, lng: p.point?.lng ?? null }),
+            }))}
           />
         </Card>
         <Card className="space-y-4">
