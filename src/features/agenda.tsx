@@ -1,6 +1,6 @@
 import {
   ArrowDown, ArrowUp, CalendarClock, CalendarPlus, CalendarX, Car, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock,
-  KeyRound, MapPin, MapPinOff, MoreHorizontal, Navigation, Pencil, Plus, Route as RouteIcon, SkipForward, Sparkles, Undo2, Waves,
+  KeyRound, LoaderCircle, LocateFixed, MapPin, MapPinOff, MoreHorizontal, Navigation, Pencil, Plus, Route as RouteIcon, SkipForward, Sparkles, Undo2, Waves,
 } from 'lucide-react'
 import { type ReactNode, Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -18,6 +18,7 @@ import type { GeoPoint, Settings } from '@/domain/types'
 import { newVisit, useClients, useDeleteVisit, usePools, useSavePools, useSaveVisit, useSettings, useVisitsInRange } from '@/hooks/data'
 import { cn } from '@/lib/cn'
 import { formatDuration, formatKm } from '@/lib/geo'
+import { useMyLocation } from '@/lib/use-my-location'
 
 const RouteMap = lazy(() => import('@/components/route-map'))
 
@@ -65,13 +66,14 @@ function toStopInput(item: AgendaItem, settings: Settings, date: string): StopIn
   }
 }
 
-function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date): Stop[] {
+function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null): Stop[] {
   const timeline = (list: AgendaItem[]) =>
     buildTimeline({
       base: settings.base,
       dayStart: parseClock(settings.dayStart),
       speedKmh: settings.avgSpeedKmh,
       now: date === today() ? minutesOfDay(now) : null,
+      current,
       stops: list.map((i) => toStopInput(i, settings, date)),
     })
   const arranged = arrangeByProgress(items)
@@ -160,7 +162,10 @@ export function AgendaPage() {
     () => (ready ? buildAgenda(date, clients.data!, pools.data!, visits.data!) : []),
     [ready, date, clients.data, pools.data, visits.data],
   )
-  const stops = ready ? planDay(agenda, settings.data!, date, now) : []
+  const me = useMyLocation()
+  const [focusMe, setFocusMe] = useState(0)
+  // A previsão usa a posição real só no dia de hoje.
+  const stops = ready ? planDay(agenda, settings.data!, date, now, isToday ? me.point : null) : []
   const progress = agendaProgress(agenda)
   const pendingStops = stops.filter((s) => isPending(s.item))
   const next = isToday ? (stops.find((s) => s.item.visit?.status === 'in_progress') ?? pendingStops[0]) : undefined
@@ -236,8 +241,17 @@ export function AgendaPage() {
           <div className="lg:sticky lg:top-8">
           <section className="mb-4 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card">
             <div className="relative z-0 h-56 lg:h-[22rem]">
+              <button
+                type="button"
+                onClick={() => { me.start(); setFocusMe((n) => n + 1) }}
+                className={cn('absolute top-3 right-3 z-[500] inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-semibold shadow-card ring-1 ring-slate-200 transition-colors hover:bg-slate-50', me.status === 'on' ? 'text-brand-700' : 'text-slate-700')}
+                aria-label="Mostrar minha localização no mapa"
+              >
+                {me.status === 'asking' ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <LocateFixed className="size-4" aria-hidden />}
+                {me.status === 'denied' ? 'Localização bloqueada' : me.status === 'on' ? 'Você' : 'Minha localização'}
+              </button>
               <Suspense fallback={<div className="h-full animate-pulse bg-slate-100" />}>
-                <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} />
+                <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} me={me.point} accuracy={me.accuracy} focusMe={focusMe} />
               </Suspense>
             </div>
             <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">

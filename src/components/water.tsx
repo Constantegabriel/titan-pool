@@ -87,8 +87,10 @@ export function WaterBackground({ className, top = '#3d8bff', bottom = '#0b3aa8'
     gl.uniform1f(gl.getUniformLocation(prog, 'u_light'), light)
     el.dataset.ready = 'true'
 
-    // Meia resolução: a água é suave, não precisa de cada pixel.
-    const scale = 0.5
+    // Resolução reduzida: a água é suave, não precisa de cada pixel (ainda menos no celular).
+    const touch = window.matchMedia('(pointer: coarse)').matches
+    const scale = touch ? 0.33 : 0.5
+    const frameMs = touch ? 50 : 33
     const resize = () => {
       const w = Math.max(1, Math.round(el.clientWidth * scale))
       const h = Math.max(1, Math.round(el.clientHeight * scale))
@@ -114,7 +116,7 @@ export function WaterBackground({ className, top = '#3d8bff', bottom = '#0b3aa8'
     let last = 0
     const loop = (now: number) => {
       frame = requestAnimationFrame(loop)
-      if (!visible || document.hidden || now - last < 33) return
+      if (!visible || document.hidden || now - last < frameMs) return
       last = now
       draw(now)
     }
@@ -144,12 +146,13 @@ export function Waves({ className, color = '#ffffff', flip }: { className?: stri
   return (
     <div className={cn('pointer-events-none absolute inset-x-0 h-20 overflow-hidden md:h-28', flip ? 'top-0 rotate-180' : 'bottom-0', className)} aria-hidden>
       {[
-        { o: 0.35, d: '18s', y: 0 },
-        { o: 0.55, d: '12s', y: 10 },
-        { o: 1, d: '8s', y: 22 },
+        // Camadas de trás em azul claro (branco translúcido sobre azul escuro fica cinza).
+        { fill: '#8ebcff', o: 0.45, d: '18s', y: 0 },
+        { fill: '#bcd6ff', o: 0.7, d: '12s', y: 10 },
+        { fill: color, o: 1, d: '8s', y: 22 },
       ].map((l, i) => (
         <svg key={i} viewBox="0 0 2000 120" preserveAspectRatio="none" className="tp-wave absolute bottom-0 left-0 h-full w-[200%]" style={{ animationDuration: l.d, bottom: -l.y, opacity: l.o }}>
-          <path d={WAVE} fill={color} />
+          <path d={WAVE} fill={l.fill} />
         </svg>
       ))}
     </div>

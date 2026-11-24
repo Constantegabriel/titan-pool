@@ -16,23 +16,39 @@ const YEAR = new Date().getFullYear()
 
 type Settings = { trial_days: number; allow_self_signup: boolean; support_whatsapp: string }
 
-/** Deslocamento suave conforme a rolagem (só transform; desligado com "menos movimento"). */
-function useParallax() {
-  const [y, setY] = useState(0)
+/** Header "sólido" depois de rolar: só muda o estado quando cruza o limite (não a cada pixel). */
+function useScrolled(threshold = 40) {
+  const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
-    if (prefersReducedMotion()) return
+    const onScroll = () => setScrolled(window.scrollY > threshold)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [threshold])
+  return scrolled
+}
+
+/**
+ * Deslocamento suave do elemento conforme a rolagem, escrito direto no estilo (sem re-renderizar
+ * a página). Só em notebook/desktop com mouse; no celular a página rola livre.
+ */
+function useParallaxRef<T extends HTMLElement>(factor: number) {
+  const ref = useRef<T>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || prefersReducedMotion() || !window.matchMedia('(pointer: fine) and (min-width: 1024px)').matches) return
     let frame = 0
     const onScroll = () => {
       cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => setY(Math.min(window.scrollY, 900)))
+      frame = requestAnimationFrame(() => { el.style.transform = `translate3d(0, ${Math.min(window.scrollY, 900) * factor}px, 0)` })
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', onScroll)
       cancelAnimationFrame(frame)
     }
-  }, [])
-  return y
+  }, [factor])
+  return ref
 }
 
 /** Número que conta até o valor quando aparece na tela. */
@@ -108,7 +124,8 @@ function useTicker(steps: number, ms: number) {
 export function LandingPage() {
   const [settings, setSettings] = useState<Settings>({ trial_days: 14, allow_self_signup: true, support_whatsapp: '' })
   const [menu, setMenu] = useState(false)
-  const scrollY = useParallax()
+  const solid = useScrolled()
+  const phoneRef = useParallaxRef<HTMLDivElement>(-0.1)
   useReveal()
   useEffect(() => {
     if (supabase) rpc<Settings>('public_settings').then(setSettings).catch(() => {})
@@ -119,7 +136,6 @@ export function LandingPage() {
   const contact = settings.support_whatsapp ? whatsappLink(settings.support_whatsapp, 'Olá! Quero conhecer o Titan Pool.') : null
   const cta = { signup, contact, trialDays: settings.trial_days }
   const links = [['#recursos', 'Recursos'], ['#rota', 'Rota'], ['#agua', 'Análise da água'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas']]
-  const solid = scrollY > 40
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-white text-slate-900">
@@ -149,9 +165,7 @@ export function LandingPage() {
 
       {/* Abertura: dentro da água */}
       <section className="relative isolate overflow-hidden pt-16 text-white">
-        <WaterBackground />
-        <div className="absolute inset-0 -z-0 bg-gradient-to-r from-brand-900/45 via-transparent to-transparent" aria-hidden />
-        <Bubbles count={16} />
+        <PoolBackdrop />
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-36 md:grid-cols-12 md:pt-20 md:pb-44">
           <div className="md:col-span-7">
             <p className="tp-rise inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold backdrop-blur">
@@ -176,7 +190,7 @@ export function LandingPage() {
               ))}
             </ul>
           </div>
-          <div className="relative md:col-span-5" style={{ transform: `translate3d(0, ${scrollY * -0.1}px, 0)` }}>
+          <div ref={phoneRef} className="relative md:col-span-5">
             <AnimatedPhone />
             <FloatChip className="top-6 -left-6 [animation-delay:-1s] md:-left-16" icon={<Navigation className="size-4" />} tone="bg-brand-600 text-white">Rota otimizada · 22 km</FloatChip>
             <FloatChip className="top-1/2 -right-2 [animation-delay:-3s] md:-right-10" icon={<BellRing className="size-4" />} tone="bg-amber-400 text-white">Lembrete de mensalidade</FloatChip>
@@ -215,7 +229,7 @@ export function LandingPage() {
             <div className="tp-reveal grid grid-cols-3 gap-4 md:col-span-6">
               <Metric value={<CountUp to={51} suffix="%" />} label="menos km no exemplo" />
               <Metric value={<CountUp to={6} />} label="clientes no mapa" />
-              <Metric value={<CountUp to={1} suffix=" toque" />} label="para otimizar" />
+              <Metric value={<CountUp to={1} />} label="toque para otimizar" />
             </div>
           </div>
           <RouteCompare />
@@ -306,6 +320,32 @@ export function LandingPage() {
       </section>
 
       <Footer contact={contact} signup={signup} />
+    </div>
+  )
+}
+
+/**
+ * Fundo da abertura: azul profundo de piscina, azulejos sutis, gotas formando ondinhas
+ * e luz entrando pela superfície. Tudo em CSS/SVG (leve no celular).
+ */
+function PoolBackdrop() {
+  const drops: Array<[string, string, string]> = [['18%', '30%', '0s'], ['78%', '22%', '-2.2s'], ['62%', '70%', '-4.1s'], ['30%', '78%', '-5.6s'], ['90%', '58%', '-1.3s']]
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[radial-gradient(120%_90%_at_80%_0%,#4f9dff_0%,#1f62e8_38%,#0f2456_100%)]" aria-hidden>
+      {/* Azulejos do fundo da piscina */}
+      <div className="absolute inset-0 opacity-[0.09] [background-image:linear-gradient(rgb(255_255_255)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(80%_70%_at_60%_40%,black,transparent)]" />
+      {/* Luz entrando pela superfície */}
+      <div className="tp-beams absolute -top-1/3 right-[10%] h-[160%] w-[60%] bg-[repeating-linear-gradient(100deg,rgb(255_255_255/0.07)_0_40px,transparent_40px_110px)] [mask-image:linear-gradient(180deg,black,transparent_75%)]" />
+      <div className="tp-blob absolute -top-32 right-0 size-[34rem] rounded-full bg-sky-300/30 blur-3xl" />
+      {/* Gotas: ondinhas que se abrem */}
+      {drops.map(([left, top, delay]) => (
+        <span key={left + top} className="absolute" style={{ left, top }}>
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="tp-drop absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" style={{ animationDelay: `calc(${delay} - ${i * 0.9}s)` }} />
+          ))}
+        </span>
+      ))}
+      <Bubbles count={8} className="hidden sm:block" />
     </div>
   )
 }
@@ -480,8 +520,8 @@ function FloatChip({ className, icon, tone, children }: { className?: string; ic
 
 function Metric({ value, label }: { value: ReactNode; label: string }) {
   return (
-    <div className="border-l border-white/15 pl-4">
-      <p className="text-3xl font-extrabold md:text-4xl">{value}</p>
+    <div className="min-w-0 border-l border-white/15 pl-3 sm:pl-4">
+      <p className="text-2xl font-extrabold sm:text-3xl md:text-4xl">{value}</p>
       <p className="mt-1 text-sm text-slate-400">{label}</p>
     </div>
   )
@@ -609,7 +649,7 @@ function Steps() {
     ['Registre e receba', 'Relatório pelo WhatsApp, mensalidades em dia e o financeiro do mês pronto.'],
   ]
   return (
-    <section className="mx-auto max-w-6xl px-4 py-24">
+    <section id="como-funciona" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24">
       <div className="tp-reveal max-w-xl">
         <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Como funciona</p>
         <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl md:leading-[1.05]">Comece hoje, em três passos.</h2>

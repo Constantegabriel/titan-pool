@@ -18,10 +18,18 @@ export interface MapStop {
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION = '© OpenStreetMap'
 
-export default function RouteMap({ base, stops, onSelect }: { base: GeoPoint | null; stops: MapStop[]; onSelect?: (key: string) => void }) {
+export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe }: {
+  base: GeoPoint | null; stops: MapStop[]; onSelect?: (key: string) => void
+  /** Posição atual do aparelho. */
+  me?: GeoPoint | null
+  accuracy?: number | null
+  /** Muda quando a pessoa pede para centralizar nela. */
+  focusMe?: number
+}) {
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
+  const meLayer = useRef<L.LayerGroup | null>(null)
 
   useEffect(() => {
     if (!el.current || map.current) return
@@ -29,6 +37,7 @@ export default function RouteMap({ base, stops, onSelect }: { base: GeoPoint | n
     L.tileLayer(TILE_URL, { attribution: ATTRIBUTION, maxZoom: 19, className: 'tp-tiles' }).addTo(map.current)
     L.control.zoom({ position: 'bottomright' }).addTo(map.current)
     layer.current = L.layerGroup().addTo(map.current)
+    meLayer.current = L.layerGroup().addTo(map.current)
     return () => {
       map.current?.remove()
       map.current = null
@@ -68,6 +77,27 @@ export default function RouteMap({ base, stops, onSelect }: { base: GeoPoint | n
     else if (all.length > 1) m.fitBounds(L.latLngBounds(all), { padding: [36, 36], maxZoom: 15 })
     else m.setView([-15.78, -47.93], 4)
   }, [base, stops, onSelect])
+
+  // "Você está aqui": ponto azul pulsando e o círculo de precisão; não mexe no enquadramento.
+  useEffect(() => {
+    const group = meLayer.current
+    if (!group) return
+    group.clearLayers()
+    if (!me) return
+    if (accuracy && accuracy < 1500) {
+      L.circle([me.lat, me.lng], { radius: accuracy, color: '#3478f6', weight: 1, opacity: 0.4, fillColor: '#3478f6', fillOpacity: 0.08, interactive: false }).addTo(group)
+    }
+    L.marker([me.lat, me.lng], {
+      icon: L.divIcon({ className: '', html: '<div class="tp-me"><span></span></div>', iconSize: [22, 22] }),
+      title: 'Você está aqui',
+      zIndexOffset: 2000,
+      keyboard: false,
+    }).addTo(group)
+  }, [me, accuracy])
+
+  useEffect(() => {
+    if (focusMe && me && map.current) map.current.setView([me.lat, me.lng], Math.max(map.current.getZoom(), 15), { animate: true })
+  }, [focusMe]) // oxlint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={el} className="h-full w-full" role="img" aria-label="Mapa com a rota do dia" />
 }

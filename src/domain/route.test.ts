@@ -131,3 +131,19 @@ describe('visitas com horário', () => {
     expect(mergeByTime(untimed, [{ item: 'T15', time: 930 }, { item: 'T9', time: 540 }])).toEqual(['a', 'T9', 'b', 'c', 'T15'])
   })
 })
+
+describe('localização atual', () => {
+  it('calcula a ida para a próxima parada a partir de onde a pessoa está', () => {
+    const stop = { point: P(5), serviceMinutes: 30, state: 'pending' as const, startedAt: null, finishedAt: null }
+    const fromBase = buildTimeline({ base: P(0), dayStart: 480, speedKmh: 30, now: 600, stops: [stop] })
+    const fromHere = buildTimeline({ base: P(0), dayStart: 480, speedKmh: 30, now: 600, stops: [stop], current: P(4) })
+    expect(fromHere[0].km!).toBeLessThan(fromBase[0].km!)
+    expect(fromHere[0].arrival).toBe(600 + fromHere[0].travelMinutes)
+  })
+  it('ignora a localização em outros dias', () => {
+    const stop = { point: P(5), serviceMinutes: 30, state: 'pending' as const, startedAt: null, finishedAt: null }
+    const a = buildTimeline({ base: P(0), dayStart: 480, speedKmh: 30, now: null, stops: [stop], current: P(4) })
+    const b = buildTimeline({ base: P(0), dayStart: 480, speedKmh: 30, now: null, stops: [stop] })
+    expect(a).toEqual(b)
+  })
+})

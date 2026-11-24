@@ -130,6 +130,8 @@ export interface TimelineInput {
   speedKmh: number
   /** Agora, em minutos do dia — só para o dia corrente; null para outros dias. */
   now: number | null
+  /** Onde o piscineiro está agora (GPS). No dia corrente, a próxima ida sai daqui. */
+  current?: GeoPoint | null
   stops: StopInput[]
 }
 
@@ -137,12 +139,18 @@ export interface TimelineInput {
  * Horários de chegada e saída de cada parada. Paradas concluídas usam os horários reais;
  * as seguintes são reprojetadas a partir de agora, então a previsão se corrige ao longo do dia.
  */
-export function buildTimeline({ base, dayStart, speedKmh, now, stops }: TimelineInput): StopPlan[] {
+export function buildTimeline({ base, dayStart, speedKmh, now, stops, current }: TimelineInput): StopPlan[] {
   const plans: StopPlan[] = []
   let clock = dayStart
   let position = base
+  // Com GPS e nenhuma visita em andamento, a primeira parada pendente é calculada de onde a pessoa está.
+  let useCurrent = Boolean(current && now !== null && !stops.some((s) => s.state === 'in_progress'))
 
   for (const stop of stops) {
+    if (useCurrent && stop.state === 'pending') {
+      position = current!
+      useCurrent = false
+    }
     const km = roadKm(position, stop.point)
     const travel = travelMinutes(km, speedKmh)
 
