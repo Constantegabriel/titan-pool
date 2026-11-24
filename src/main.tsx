@@ -1,10 +1,6 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import { isLikelyVisitor } from './lib/visitor'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Visitante na página inicial baixa só a landing; quem tem conta baixa o app.
+const entry = isLikelyVisitor() ? import('./landing-entry') : import('./app-entry')
+entry.then((m) => m.mount(document.getElementById('root')!))

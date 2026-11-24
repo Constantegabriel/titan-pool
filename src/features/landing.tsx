@@ -3,13 +3,13 @@ import {
   Laptop, MapPin, Menu, MessageCircle, Navigation, Send, ShieldCheck, ShoppingBag, Smartphone, Sparkles, UserRound, Users, Wallet, X,
 } from 'lucide-react'
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { rpc, supabase } from '@/data'
+import { SUPABASE_KEY, SUPABASE_URL } from '@/config'
 import { IDEAL_RANGES, type ReadingKey, classify, suggestCorrections } from '@/domain/chemistry'
 import { whatsappLink } from '@/domain/format'
 import { haversineKm, optimizeOrder, ROAD_FACTOR } from '@/domain/route'
 import { cn } from '@/lib/cn'
 import { prefersReducedMotion, useReveal } from '@/lib/use-reveal'
+import armetecLogo from '@/assets/armetec.webp'
 import { Bubbles, WaterBackground, Waves } from '@/components/water'
 
 const YEAR = new Date().getFullYear()
@@ -100,7 +100,7 @@ function Cta({ signup, contact, trialDays, className, light }: { signup: string 
       <ArrowRight className="relative size-5 transition-transform group-hover:translate-x-0.5" aria-hidden />
     </>
   )
-  if (signup) return <Link to={signup} className={cls} onPointerDown={onDown}>{inner(`Testar grátis por ${trialDays} dias`)}</Link>
+  if (signup) return <a href={signup} className={cls} onPointerDown={onDown}>{inner(`Testar grátis por ${trialDays} dias`)}</a>
   if (!contact) return null
   return <a href={contact} target="_blank" rel="noopener noreferrer" className={cls} onPointerDown={onDown}>{inner('Quero conhecer')}</a>
 }
@@ -128,7 +128,14 @@ export function LandingPage() {
   const phoneRef = useParallaxRef<HTMLDivElement>(-0.1)
   useReveal()
   useEffect(() => {
-    if (supabase) rpc<Settings>('public_settings').then(setSettings).catch(() => {})
+    // Sem a biblioteca do banco: a landing busca as configurações públicas com um fetch simples.
+    if (SUPABASE_URL && SUPABASE_KEY) {
+      fetch(`${SUPABASE_URL}/rest/v1/rpc/public_settings`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then((r) => (r.ok ? r.json() : null)).then((d: Settings | null) => d && setSettings(d)).catch(() => {})
+    }
     document.title = 'Titan Pool · O app do piscineiro'
     return () => { document.title = 'Titan Pool' }
   }, [])
@@ -139,19 +146,19 @@ export function LandingPage() {
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-white text-slate-900">
-      <header className={cn('fixed inset-x-0 top-0 z-40 transition-all duration-300', solid ? 'border-b border-slate-100/80 bg-white/90 text-slate-900 shadow-sm backdrop-blur-md' : 'text-white')}>
+      <header className={cn('fixed inset-x-0 top-0 z-40 text-slate-900 transition-all duration-300', solid ? 'border-b border-slate-100/80 bg-white/90 shadow-sm backdrop-blur-md' : 'bg-transparent')}>
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <span className={cn('flex size-9 items-center justify-center rounded-xl transition-colors', solid ? 'bg-brand-600 text-white' : 'bg-white/20 text-white backdrop-blur')}><Droplets className="size-5" aria-hidden /></span>
+          <a href="/" className="inline-flex items-center gap-2">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-brand-600 text-white shadow-float"><Droplets className="size-5" aria-hidden /></span>
             <span className="text-xl font-bold tracking-tight">Titan Pool</span>
-          </Link>
-          <nav className={cn('hidden gap-7 text-sm font-medium lg:flex', solid ? 'text-slate-600' : 'text-white/85')}>
-            {links.map(([h, l]) => <a key={h} href={h} className={cn('transition-colors', solid ? 'hover:text-brand-700' : 'hover:text-white')}>{l}</a>)}
+          </a>
+          <nav className="hidden gap-7 text-sm font-medium text-slate-600 lg:flex">
+            {links.map(([h, l]) => <a key={h} href={h} className="transition-colors hover:text-brand-700">{l}</a>)}
           </nav>
           <div className="flex items-center gap-2">
-            <Link to="/entrar" className={cn('rounded-xl px-3 py-2 text-sm font-semibold', solid ? 'text-slate-700 hover:bg-slate-100' : 'text-white hover:bg-white/15')}>Entrar</Link>
-            {signup && <Link to={signup} className={cn('hidden rounded-xl px-4 py-2 text-sm font-semibold sm:inline-flex', solid ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-white text-brand-700 hover:bg-brand-50')}>Testar grátis</Link>}
-            <button type="button" className={cn('flex size-10 items-center justify-center rounded-xl lg:hidden', solid ? 'text-slate-600 hover:bg-slate-100' : 'text-white hover:bg-white/15')} aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <a href="/entrar" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Entrar</a>
+            {signup && <a href={signup} className="hidden rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-flex">Testar grátis</a>}
+            <button type="button" className="flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
               {menu ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
           </div>
@@ -163,30 +170,30 @@ export function LandingPage() {
         )}
       </header>
 
-      {/* Abertura: dentro da água */}
-      <section className="relative isolate overflow-hidden pt-16 text-white">
+      {/* Abertura: fundo branco com detalhes de água bem leves */}
+      <section className="relative isolate overflow-hidden bg-white pt-16 text-slate-900">
         <PoolBackdrop />
         <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-36 md:grid-cols-12 md:pt-20 md:pb-44">
           <div className="md:col-span-7">
-            <p className="tp-rise inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold backdrop-blur">
-              <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-300 opacity-75" /><span className="relative inline-flex size-2 rounded-full bg-emerald-300" /></span>
+            <p className="tp-rise inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3.5 py-1.5 text-sm font-semibold text-brand-700">
+              <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex size-2 rounded-full bg-emerald-500" /></span>
               O app do piscineiro
             </p>
-            <h1 className="tp-rise mt-6 text-[2.8rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] [text-shadow:0_2px_30px_rgb(11_58_168/0.35)] md:text-[4.4rem]">
-              Mais piscinas por dia.<br /><span className="text-sky-200">Menos tempo no volante.</span>
+            <h1 className="tp-rise mt-6 text-[2.8rem] leading-[1.02] font-extrabold tracking-tight [animation-delay:80ms] md:text-[4.4rem]">
+              Mais piscinas por dia.<br /><span className="bg-gradient-to-r from-brand-600 to-sky-500 bg-clip-text text-transparent">Menos tempo no volante.</span>
             </h1>
-            <p className="tp-rise mt-6 max-w-xl text-lg text-white/90 [animation-delay:160ms] md:text-xl">
+            <p className="tp-rise mt-6 max-w-xl text-lg text-slate-600 [animation-delay:160ms] md:text-xl">
               O Titan Pool organiza sua agenda, monta a melhor rota, gera o relatório da piscina e cobra seus clientes. Você trabalha menos no papel e mais na água.
             </p>
             <div className="tp-rise mt-9 flex flex-col gap-3 [animation-delay:240ms] sm:flex-row">
-              <Cta {...cta} light />
-              <a href="#como-funciona" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white/15 px-6 text-base font-semibold text-white ring-1 ring-white/30 backdrop-blur hover:bg-white/25">
+              <Cta {...cta} />
+              <a href="#como-funciona" className="inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 text-base font-semibold text-slate-700 hover:border-brand-200 hover:bg-brand-50/50">
                 Ver como funciona
               </a>
             </div>
-            <ul className="tp-rise mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85 [animation-delay:320ms]">
+            <ul className="tp-rise mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500 [animation-delay:320ms]">
               {['Teste grátis sem cartão', 'Pronto em 5 minutos', 'Celular e notebook'].map((t) => (
-                <li key={t} className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-sky-200" aria-hidden />{t}</li>
+                <li key={t} className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" aria-hidden />{t}</li>
               ))}
             </ul>
           </div>
@@ -329,23 +336,22 @@ export function LandingPage() {
  * e luz entrando pela superfície. Tudo em CSS/SVG (leve no celular).
  */
 function PoolBackdrop() {
-  const drops: Array<[string, string, string]> = [['18%', '30%', '0s'], ['78%', '22%', '-2.2s'], ['62%', '70%', '-4.1s'], ['30%', '78%', '-5.6s'], ['90%', '58%', '-1.3s']]
+  const drops: Array<[string, string, string]> = [['12%', '28%', '0s'], ['84%', '18%', '-2.2s'], ['66%', '78%', '-4.1s'], ['38%', '86%', '-5.6s'], ['94%', '56%', '-1.3s']]
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[radial-gradient(120%_90%_at_80%_0%,#4f9dff_0%,#1f62e8_38%,#0f2456_100%)]" aria-hidden>
-      {/* Azulejos do fundo da piscina */}
-      <div className="absolute inset-0 opacity-[0.09] [background-image:linear-gradient(rgb(255_255_255)_1px,transparent_1px),linear-gradient(90deg,rgb(255_255_255)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(80%_70%_at_60%_40%,black,transparent)]" />
-      {/* Luz entrando pela superfície */}
-      <div className="tp-beams absolute -top-1/3 right-[10%] h-[160%] w-[60%] bg-[repeating-linear-gradient(100deg,rgb(255_255_255/0.07)_0_40px,transparent_40px_110px)] [mask-image:linear-gradient(180deg,black,transparent_75%)]" />
-      <div className="tp-blob absolute -top-32 right-0 size-[34rem] rounded-full bg-sky-300/30 blur-3xl" />
-      {/* Gotas: ondinhas que se abrem */}
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden>
+      {/* Azulejos bem claros, sumindo nas bordas */}
+      <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(var(--color-brand-100)_1px,transparent_1px),linear-gradient(90deg,var(--color-brand-100)_1px,transparent_1px)] [background-size:44px_44px] [mask-image:radial-gradient(60%_55%_at_80%_30%,black,transparent)]" />
+      {/* Brilho de água atrás do celular */}
+      <div className="tp-blob absolute -top-24 right-[-6rem] hidden size-[36rem] rounded-full bg-sky-200/45 blur-3xl md:block" />
+      <div className="tp-blob absolute top-40 right-[18%] hidden size-[22rem] rounded-full bg-brand-200/35 blur-3xl [animation-delay:-7s] md:block" />
+      {/* Gotas: ondinhas azuis que se abrem */}
       {drops.map(([left, top, delay]) => (
-        <span key={left + top} className="absolute" style={{ left, top }}>
+        <span key={left + top} className="absolute hidden md:block" style={{ left, top }}>
           {[0, 1, 2].map((i) => (
-            <span key={i} className="tp-drop absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40" style={{ animationDelay: `calc(${delay} - ${i * 0.9}s)` }} />
+            <span key={i} className="tp-drop absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-brand-200" style={{ animationDelay: `calc(${delay} - ${i * 0.9}s)` }} />
           ))}
         </span>
       ))}
-      <Bubbles count={8} className="hidden sm:block" />
     </div>
   )
 }
@@ -491,7 +497,13 @@ function Footer({ contact, signup }: { contact: string | null; signup: string | 
         </div>
       </div>
       <div className="border-t border-white/10">
-        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-slate-500">© {YEAR} Titan Pool. Todos os direitos reservados.</p>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 sm:flex-row">
+          <p className="text-xs text-slate-500">© {YEAR} Titan Pool. Todos os direitos reservados.</p>
+          <a href="https://armetec.com.br" target="_blank" rel="noopener" className="group inline-flex items-center gap-2 text-xs text-slate-400 transition-colors hover:text-white">
+            Desenvolvido por
+            <img src={armetecLogo} alt="Armetec" width={105} height={24} loading="lazy" decoding="async" className="h-6 w-auto opacity-90 transition-opacity group-hover:opacity-100" />
+          </a>
+        </div>
       </div>
     </footer>
   )
@@ -503,7 +515,7 @@ function FooterCol({ title, links }: { title: string; links: Array<[string, stri
       <p className="text-sm font-semibold text-white">{title}</p>
       <ul className="mt-3 space-y-2 text-sm">
         {links.map(([href, label]) => (
-          <li key={href}>{href.startsWith('/') ? <Link to={href} className="hover:text-white">{label}</Link> : <a href={href} className="hover:text-white">{label}</a>}</li>
+          <li key={href}>{href.startsWith('/') ? <a href={href} className="hover:text-white">{label}</a> : <a href={href} className="hover:text-white">{label}</a>}</li>
         ))}
       </ul>
     </div>
@@ -688,7 +700,7 @@ function AnimatedPhone() {
   const next = DAY_STOPS[done]
   const path = `M60 88 ${DAY_STOPS.map((s) => `L${s.x} ${s.y}`).join(' ')}`
   return (
-    <div ref={ref} className="tp-page relative mx-auto w-full max-w-[310px] text-slate-900" aria-label="Exemplo da agenda do dia no app" role="img">
+    <div ref={ref} className="relative mx-auto w-full max-w-[310px] text-slate-900" aria-label="Exemplo da agenda do dia no app" role="img">
       <div className="absolute -inset-10 -z-10 rounded-full bg-brand-300/30 blur-3xl" />
       <div className="rounded-[2.8rem] border-[10px] border-slate-900 bg-canvas p-3 shadow-2xl">
         <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300" />

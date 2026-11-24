@@ -6,6 +6,7 @@ import { ButtonLink, EmptyState, Loading } from '@/components/ui'
 import { AgendaPage } from '@/features/agenda'
 import { RequireAccess, RequireAdmin } from '@/features/auth'
 import { AccountProvider } from '@/lib/account'
+import { isLikelyVisitor } from '@/lib/visitor'
 import { useAccount } from '@/lib/account-context'
 
 // Telas carregam sob demanda: quem abre o app baixa só a agenda; quem abre o site, só a landing.
@@ -18,7 +19,10 @@ const purchases = () => import('@/features/purchases')
 const settings = () => import('@/features/settings')
 const suppliers = () => import('@/features/suppliers')
 
-const LandingPage = page(() => import('@/features/landing'), 'LandingPage')
+const loadLanding = () => import('@/features/landing')
+// Visitante abrindo o site: começa a baixar a landing junto com o app, sem esperar a checagem de login.
+if (isLikelyVisitor()) void loadLanding()
+const LandingPage = page(loadLanding, 'LandingPage')
 const LoginPage = page(auth, 'LoginPage')
 const SignupPage = page(auth, 'SignupPage')
 const NewPasswordPage = page(auth, 'NewPasswordPage')
