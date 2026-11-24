@@ -1,20 +1,29 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Layout } from '@/components/layout'
 import { ButtonLink, EmptyState, Loading } from '@/components/ui'
-import { AuthGate } from '@/features/auth'
 import { AgendaPage } from '@/features/agenda'
+import { RequireAccess, RequireAdmin } from '@/features/auth'
+import { AccountProvider } from '@/lib/account'
+import { useAccount } from '@/lib/account-context'
 
-// Telas secundárias carregam sob demanda: a primeira abertura baixa só o roteiro do dia.
+// Telas carregam sob demanda: quem abre o app baixa só a agenda; quem abre o site, só a landing.
 const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) =>
   lazy(() => load().then((m) => ({ default: m[name] })))
+const auth = () => import('@/features/auth')
 const clients = () => import('@/features/clients')
 const finance = () => import('@/features/finance')
 const purchases = () => import('@/features/purchases')
 const settings = () => import('@/features/settings')
 const suppliers = () => import('@/features/suppliers')
 
+const LandingPage = page(() => import('@/features/landing'), 'LandingPage')
+const LoginPage = page(auth, 'LoginPage')
+const SignupPage = page(auth, 'SignupPage')
+const NewPasswordPage = page(auth, 'NewPasswordPage')
+const InviteRedirect = page(auth, 'InviteRedirect')
+const AdminPage = page(() => import('@/features/admin'), 'AdminPage')
 const ClientsPage = page(clients, 'ClientsPage')
 const ClientFormPage = page(clients, 'ClientFormPage')
 const ClientDetailPage = page(clients, 'ClientDetailPage')
@@ -35,14 +44,33 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
 })
 
+/** "/" é a landing page para quem não entrou e o app para quem entrou. */
+function AppShell() {
+  const { enabled, session } = useAccount()
+  const location = useLocation()
+  if (enabled && session === undefined) return <Loading />
+  if (enabled && !session && location.pathname === '/') return <LandingPage />
+  return (
+    <RequireAccess>
+      <Layout />
+    </RequireAccess>
+  )
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthGate>
+      <AccountProvider>
         <BrowserRouter>
           <Suspense fallback={<Loading />}>
             <Routes>
-              <Route element={<Layout />}>
+              <Route path="inicio" element={<LandingPage />} />
+              <Route path="entrar" element={<LoginPage />} />
+              <Route path="cadastro" element={<SignupPage />} />
+              <Route path="nova-senha" element={<NewPasswordPage />} />
+              <Route path="convite/:token" element={<InviteRedirect />} />
+              <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+              <Route element={<AppShell />}>
                 <Route index element={<AgendaPage />} />
                 <Route path="agenda/nova" element={<ScheduleVisitPage />} />
                 <Route path="clientes" element={<ClientsPage />} />
@@ -71,7 +99,7 @@ export default function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
-      </AuthGate>
+      </AccountProvider>
     </QueryClientProvider>
   )
 }

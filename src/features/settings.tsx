@@ -1,11 +1,13 @@
-import { Building2, ChevronRight, Cloud, Download, HardDrive, ListChecks, LogOut, Sparkles, Store, Upload } from 'lucide-react'
+import { Building2, ChevronRight, Download, HardDrive, ListChecks, LogOut, MessageCircle, ShieldCheck, Sparkles, Store, Upload } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, type ReactNode, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LocationPicker } from '@/components/location-picker'
-import { Button, Card, ErrorState, Field, Input, ListCard, Loading, PageHeader, SectionTitle } from '@/components/ui'
-import { OPEN_ACCESS } from '@/config'
-import { deviceRepository, repository, supabase, type Snapshot } from '@/data'
+import { Badge, Button, ButtonLink, Card, ErrorState, ExternalButton, Field, Input, ListCard, Loading, PageHeader, SectionTitle } from '@/components/ui'
+import { deviceRepository, repository, type Snapshot } from '@/data'
+import { accessLabel } from '@/domain/account'
+import { whatsappLink } from '@/domain/format'
+import { useAccount } from '@/lib/account-context'
 import { today } from '@/domain/dates'
 import type { Settings } from '@/domain/types'
 import { useClients, useSaveSettings, useSettings } from '@/hooks/data'
@@ -73,20 +75,18 @@ export function MorePage() {
         <MenuLink to="/mais/ajustes" icon={<Building2 className="size-5" />} title="Empresa e roteiro" hint="Nome nos PDFs, horário de saída, ponto de partida" />
       </ListCard>
 
+      <AccountCard />
+
       <SectionTitle>Seus dados</SectionTitle>
-      <Card className="flex items-start gap-3">
-        {repository.mode === 'cloud' ? <Cloud className="mt-0.5 size-5 text-brand-700" aria-hidden /> : <HardDrive className="mt-0.5 size-5 text-amber-700" aria-hidden />}
-        <div className="text-sm">
-          <p className="font-semibold">{repository.mode === 'cloud' ? 'Sincronizado na nuvem' : 'Salvos neste aparelho'}</p>
-          <p className="text-slate-600">
-            {repository.mode === 'cloud'
-              ? OPEN_ACCESS
-                ? 'Tudo fica salvo no banco de dados e aparece igual no celular, no notebook e para quem tiver o link.'
-                : 'Seus dados ficam na sua conta e aparecem em qualquer aparelho em que você entrar.'
-              : 'Funciona sem internet e sem conta. Faça backup com frequência: limpar o navegador apaga os dados.'}
-          </p>
-        </div>
-      </Card>
+      {repository.mode === 'local' && (
+        <Card className="flex items-start gap-3">
+          <HardDrive className="mt-0.5 size-5 text-amber-700" aria-hidden />
+          <div className="text-sm">
+            <p className="font-semibold">Salvos neste aparelho</p>
+            <p className="text-slate-600">Sem banco de dados configurado. Faça backup com frequência.</p>
+          </div>
+        </Card>
+      )}
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Button variant="secondary" onClick={exportBackup} loading={busy}><Download className="size-4" aria-hidden /> Backup</Button>
         <input ref={fileRef} type="file" accept="application/json" className="sr-only" onChange={(e) => e.target.files?.[0] && importBackup(e.target.files[0])} />
@@ -99,9 +99,6 @@ export function MorePage() {
 
       {repository.mode === 'cloud' && <DeviceDataImport onDone={() => qc.invalidateQueries()} />}
 
-      {supabase && !OPEN_ACCESS && (
-        <Button variant="secondary" className="mt-6 w-full" onClick={() => supabase!.auth.signOut()}><LogOut className="size-4" aria-hidden /> Sair da conta</Button>
-      )}
       <p className="mt-8 text-center text-xs text-slate-400">Titan Pool · para instalar, use “Adicionar à tela inicial” no navegador do celular.</p>
     </>
   )
@@ -194,5 +191,36 @@ function DeviceDataImport({ onDone }: { onDone: () => void }) {
       )}
       {state === 'error' && <p className="mt-2 text-sm text-rose-700">Não foi possível enviar agora. Tente de novo.</p>}
     </Card>
+  )
+}
+
+/** Conta, situação do plano, suporte e sair. */
+function AccountCard() {
+  const { account, signOut } = useAccount()
+  if (!account?.org) return null
+  const { label, tone } = accessLabel(account.org)
+  const support = account.settings.support_whatsapp
+  return (
+    <>
+      <SectionTitle>Sua conta</SectionTitle>
+      <Card className="space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{account.org.name}</p>
+            <p className="truncate text-sm text-slate-500">{account.email}</p>
+          </div>
+          <Badge tone={tone}>{label}</Badge>
+        </div>
+        {support && account.org.status === 'trialing' && (
+          <ExternalButton href={whatsappLink(support, `Olá! Quero assinar o Titan Pool (conta ${account.org.name}).`)} variant="whatsapp" size="sm" className="w-full">
+            <MessageCircle className="size-4" aria-hidden /> Assinar / falar com o suporte
+          </ExternalButton>
+        )}
+        {account.is_admin && (
+          <ButtonLink to="/admin" variant="secondary" size="sm" className="w-full"><ShieldCheck className="size-4" aria-hidden /> Painel do super admin</ButtonLink>
+        )}
+        <Button variant="ghost" size="sm" className="w-full" onClick={signOut}><LogOut className="size-4" aria-hidden /> Sair</Button>
+      </Card>
+    </>
   )
 }

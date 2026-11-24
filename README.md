@@ -36,18 +36,28 @@ npm run dev
 Sem configuração, roda em **modo local**: dados no IndexedDB do aparelho, sem conta.
 Em *Mais* há backup/restauração em JSON e dados de exemplo.
 
+## Contas, período grátis e super admin
+
+- **Landing page** em `/` para quem não entrou; o app abre em `/` para quem entrou.
+- **Cadastro** (`/cadastro`): cria login e uma conta em teste grátis (dias definidos pelo admin).
+- **Convite** (`/convite/<token>`): link gerado pelo super admin; a pessoa cria a senha e entra na conta.
+- **Situação da conta**: sem cobrança, em teste (até uma data), plano ativo (até uma data) ou suspensa.
+  Sem acesso, o banco não devolve nenhum dado e o app mostra a tela de bloqueio com o WhatsApp do suporte.
+- **Super admin** (`/admin`): métricas, busca, novo acesso com link, +7/+14/+30 dias de teste, ativar plano
+  até uma data, cortesia, suspender/reativar, anotações, excluir conta e configurações da plataforma
+  (dias de teste, cadastro aberto ou só por convite, WhatsApp do suporte).
+
+Tudo roda em funções do banco (`supabase/migrations/20261127000000_accounts.sql`), sem servidor próprio.
+
 ## Banco de dados (Supabase)
 
-1. Crie um projeto em [supabase.com](https://supabase.com) (região São Paulo).
-2. Em **SQL Editor → New query**, cole todo o conteúdo de `supabase/setup.sql` e clique em **Run**.
-   (Gerado a partir de `supabase/migrations/` com `npm run db:setup-sql`.)
-3. Em **Project Settings → API**, copie a *Project URL* e a chave *anon/publishable* e coloque em
-   `src/config.ts` (ou nas variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` da Vercel).
-
-**Acesso aberto (padrão):** sem login — quem tem o link usa os mesmos dados, em qualquer aparelho.
-Para exigir login, defina `VITE_OPEN_ACCESS=false`; cada conta passa a ter os próprios dados.
-Dados cadastrados antes do banco (salvos só no navegador) podem ser enviados em *Mais → Enviar
-para a nuvem*.
+1. Projeto novo: cole `supabase/setup.sql` inteiro no **SQL Editor** e rode.
+   Projeto existente: rode só as migrations novas de `supabase/migrations/`.
+2. Em **Authentication → URL Configuration**, use o endereço do site como *Site URL* e adicione
+   `https://SEU-SITE/**` em *Redirect URLs* (confirmação de e-mail e nova senha).
+3. Crie sua conta no site e rode no SQL Editor: `select public.bootstrap_super_admin('seu@email.com');`
+4. URL e chave pública ficam em `src/config.ts` (ou `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`).
+   Com `VITE_SUPABASE_URL=` vazio, o app roda só no aparelho, sem login.
 
 ## Arquitetura
 
