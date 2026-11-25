@@ -147,3 +147,16 @@ describe('localização atual', () => {
     expect(a).toEqual(b)
   })
 })
+
+import { applyOrder, moveItem } from './day-plan'
+
+describe('plano do dia', () => {
+  it('segue a ordem salva e põe paradas novas no fim', () => {
+    expect(applyOrder(['a', 'b', 'c', 'd'], ['c', 'a'], (x) => x)).toEqual(['c', 'a', 'b', 'd'])
+    expect(applyOrder(['a', 'b'], [], (x) => x)).toEqual(['a', 'b'])
+  })
+  it('move itens ao arrastar', () => {
+    expect(moveItem(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd'])
+    expect(moveItem(['a', 'b', 'c', 'd'], 3, 1)).toEqual(['a', 'd', 'b', 'c'])
+  })
+})

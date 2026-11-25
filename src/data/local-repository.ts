@@ -1,6 +1,6 @@
 import { periodOf } from '@/domain/dates'
 import {
-  type CatalogItem, type Charge, type Client, DEFAULT_SETTINGS, type Id, type Pool, type Purchase, type Settings,
+  type CatalogItem, type Charge, type DayPlan, type Client, DEFAULT_SETTINGS, type Id, type Pool, type Purchase, type Settings,
   type Supplier, type Transaction, type Visit,
 } from '@/domain/types'
 import { type Repository, type Snapshot, nowIso } from './repository'
@@ -14,6 +14,7 @@ type Collections = {
   catalog: CatalogItem
   purchases: Purchase
   transactions: Transaction
+  dayPlans: DayPlan
 }
 type Name = keyof Collections
 
@@ -161,6 +162,10 @@ export class LocalRepository implements Repository {
   saveTransaction = async (t: Transaction) => (await this.upsert('transactions', [t]))[0]
   deleteTransaction = (id: Id) => this.remove('transactions', (t) => t.id === id)
 
+  listDayPlans = async (from: string, to: string) => (await this.read('dayPlans')).filter((p) => p.id >= from && p.id <= to)
+  saveDayPlan = async (plan: DayPlan) => (await this.upsert('dayPlans', [plan]))[0]
+  deleteDayPlan = (date: string) => this.remove('dayPlans', (p) => p.id === date)
+
   uploadPhoto(_visitId: Id, photo: Blob): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -182,6 +187,7 @@ export class LocalRepository implements Repository {
       catalog: await this.read('catalog'),
       purchases: await this.read('purchases'),
       transactions: await this.read('transactions'),
+      dayPlans: await this.read('dayPlans'),
       settings: await this.getSettings(),
     }
   }
@@ -195,6 +201,7 @@ export class LocalRepository implements Repository {
     await this.upsert('catalog', s.catalog ?? [])
     await this.upsert('purchases', s.purchases ?? [])
     await this.upsert('transactions', s.transactions ?? [])
+    await this.upsert('dayPlans', s.dayPlans ?? [])
     if (s.settings) await this.saveSettings({ ...DEFAULT_SETTINGS, ...s.settings })
   }
 }

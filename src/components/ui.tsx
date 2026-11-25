@@ -150,8 +150,8 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
   )
 }
 
-export function ListCard({ children }: { children: ReactNode }) {
-  return <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card">{children}</ul>
+export function ListCard({ children, className }: { children: ReactNode; className?: string }) {
+  return <ul className={cn('divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card', className)}>{children}</ul>
 }
 
 const AVATAR_COLORS = ['bg-brand-100 text-brand-700', 'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700', 'bg-violet-100 text-violet-700', 'bg-sky-100 text-sky-700', 'bg-rose-100 text-rose-700', 'bg-teal-100 text-teal-700']

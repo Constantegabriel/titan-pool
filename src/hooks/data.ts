@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { repository, newId, nowIso } from '@/data'
 import { chargesToCreate } from '@/domain/billing'
-import type { CatalogItem, Charge, Client, Id, IsoDate, Period, Pool, Purchase, Settings, Supplier, Transaction, Visit } from '@/domain/types'
+import type { CatalogItem, Charge, DayPlan, Client, Id, IsoDate, Period, Pool, Purchase, Settings, Supplier, Transaction, Visit } from '@/domain/types'
 
 export const keys = {
   clients: ['clients'] as const,
@@ -224,4 +224,22 @@ export function useSaveTransaction() {
 export function useDeleteTransaction() {
   const invalidate = useInvalidate()
   return useMutation({ mutationFn: (id: Id) => repository.deleteTransaction(id), onSuccess: () => invalidate('transactions') })
+}
+
+export const useDayPlan = (date: IsoDate) =>
+  useQuery({ queryKey: ['dayPlan', date], queryFn: async () => (await repository.listDayPlans(date, date))[0] ?? null })
+export function useSaveDayPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (plan: DayPlan) => repository.saveDayPlan(plan),
+    onMutate: (plan) => qc.setQueryData(['dayPlan', plan.id], plan),
+    onError: (_e, plan) => qc.invalidateQueries({ queryKey: ['dayPlan', plan.id] }),
+  })
+}
+export function useDeleteDayPlan() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (date: IsoDate) => repository.deleteDayPlan(date),
+    onSuccess: (_r, date) => qc.setQueryData(['dayPlan', date], null),
+  })
 }

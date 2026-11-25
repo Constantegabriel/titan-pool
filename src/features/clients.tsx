@@ -47,11 +47,37 @@ export function ClientsPage() {
         </EmptyState>
       ) : (
         <>
-          <div className="relative mb-3">
+          <div className="relative mb-3 lg:max-w-md">
             <Search className="pointer-events-none absolute top-3 left-3 size-5 text-slate-400" aria-hidden />
             <Input className="pl-10" placeholder="Buscar por nome, bairro ou telefone" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar clientes" />
           </div>
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card">
+          <div className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-card lg:block">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50/80 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                <tr><th className="px-5 py-3">Cliente</th><th className="px-4 py-3">Bairro</th><th className="px-4 py-3">Telefone</th><th className="px-4 py-3 text-center">Piscinas</th><th className="px-4 py-3 text-right">Mensalidade</th><th className="w-10" /></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((c) => (
+                  <tr key={c.id} className="group relative hover:bg-brand-50/40">
+                    <td className="px-5 py-3">
+                      <Link to={`/clientes/${c.id}`} className="flex items-center gap-3 font-medium after:absolute after:inset-0">
+                        <Avatar name={c.name} />
+                        <span className="truncate">{c.name}</span>
+                        {!c.active && <Badge>Inativo</Badge>}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{c.neighborhood.split(',')[0] || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600 tabular-nums">{c.phone || '—'}</td>
+                    <td className="px-4 py-3 text-center tabular-nums">{poolCount(c.id)}</td>
+                    <td className="px-4 py-3 text-right font-medium tabular-nums">{c.monthlyFeeCents ? formatMoney(c.monthlyFeeCents) : '—'}</td>
+                    <td className="pr-4"><ChevronRight className="size-5 text-slate-300 group-hover:text-brand-600" aria-hidden /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && <p className="px-4 py-6 text-center text-sm text-slate-500">Nenhum cliente encontrado.</p>}
+          </div>
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card lg:hidden">
             {filtered.map((c) => (
               <li key={c.id}>
                 <Link to={`/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
@@ -187,6 +213,8 @@ export function ClientDetailPage() {
         action={<ButtonLink to={`/clientes/${client.id}/editar`} variant="secondary" size="sm" aria-label="Editar cliente"><Pencil className="size-4" /></ButtonLink>}
       />
 
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <div>
       <div className="grid grid-cols-2 gap-2">
         {client.phone && (
           <>
@@ -246,6 +274,8 @@ export function ClientDetailPage() {
         </ul>
       )}
 
+      </div>
+      <div className="lg:sticky lg:top-8 lg:[&>div:first-child]:mt-0">
       <SectionTitle>Últimas visitas</SectionTitle>
       {visits.isPending ? <Loading /> : history.length ? (
         <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-card">
@@ -282,6 +312,8 @@ export function ClientDetailPage() {
       <Button variant="danger" className="mt-8 w-full" onClick={onDelete} loading={remove.isPending}>
         <Trash2 className="size-4" aria-hidden /> Excluir cliente
       </Button>
+      </div>
+      </div>
     </>
   )
 }

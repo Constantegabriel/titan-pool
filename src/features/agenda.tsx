@@ -1,21 +1,28 @@
 import {
-  ArrowDown, ArrowUp, CalendarClock, CalendarPlus, CalendarX, Car, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock,
-  KeyRound, LoaderCircle, LocateFixed, MapPin, MapPinOff, MoreHorizontal, Navigation, Pencil, Plus, Route as RouteIcon, SkipForward, Sparkles, Undo2, Waves,
+  CalendarClock, CalendarPlus, CalendarX, Car, Check, CheckCircle2, ChevronLeft, ChevronRight, Clock,
+  GripVertical, Home, KeyRound, LoaderCircle, LocateFixed, MapPin, MapPinOff, MoreHorizontal, Navigation, Pencil, Plus, Route as RouteIcon, SkipForward, Sparkles, Undo2, Waves,
 } from 'lucide-react'
 import { type ReactNode, Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MapStop } from '@/components/route-map'
 import { Sheet } from '@/components/sheet'
-import { Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading } from '@/components/ui'
-import { nowIso } from '@/data'
+import { Badge, Button, ButtonLink, Card, EmptyState, ErrorState, ExternalButton, Field, Input, Loading, Select } from '@/components/ui'
+import { newId, nowIso } from '@/data'
 import { WEEKDAY_SHORT, addDays, parseIsoDate, today, weekdayOf } from '@/domain/dates'
 import { formatLiters } from '@/domain/format'
 import {
-  type StopInput, type StopPlan, buildTimeline, formatClock, mergeByTime, minutesOfDay, navigationUrl, optimizeOrder, parseClock,
+  type StopInput, type StopPlan, buildTimeline, formatClock, mergeByTime, minutesOfDay, navigationUrl, optimizeOrder, parseClock, roadKm, travelMinutes,
 } from '@/domain/route'
-import { type AgendaItem, agendaProgress, arrangeByProgress, buildAgenda, isPending, reassignRouteOrder, routeUrl } from '@/domain/schedule'
-import type { GeoPoint, Settings } from '@/domain/types'
-import { newVisit, useClients, useDeleteVisit, usePools, useSavePools, useSaveVisit, useSettings, useVisitsInRange } from '@/hooks/data'
+import { applyOrder, emptyDayPlan, moveItem } from '@/domain/day-plan'
+import { type AgendaItem, agendaProgress, arrangeByProgress, buildAgenda, isPending, routeUrl } from '@/domain/schedule'
+import type { Client, DayPlan, GeoPoint, Pool, Settings } from '@/domain/types'
+import { newVisit, useClients, useDayPlan, useDeleteVisit, usePools, useSaveDayPlan, useSavePool, useSaveVisit, useSettings, useVisitsInRange } from '@/hooks/data'
+import { ClientPicker } from '@/components/client-picker'
+
+import { type DraggableAttributes, DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities'
 import { cn } from '@/lib/cn'
 import { formatDuration, formatKm } from '@/lib/geo'
 import { useMyLocation } from '@/lib/use-my-location'
@@ -66,31 +73,96 @@ function toStopInput(item: AgendaItem, settings: Settings, date: string): StopIn
   }
 }
 
-function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null): Stop[] {
+interface DayResult {
+  stops: Stop[]
+  /** Volta para casa no fim do dia, se escolhida. */
+  back: { km: number | null; minutes: number; arrival: number } | null
+  totals: { km: number; driveMinutes: number; end: number | null }
+}
+
+/** De onde sai a primeira ida do dia, conforme o plano e o GPS. */
+const startPoint = (plan: DayPlan | null, current: GeoPoint | null) => (plan?.startMode === 'base' ? null : current)
+
+/**
+ * Calcula o dia: visitas já feitas na ordem em que aconteceram, depois as pendentes —
+ * na ordem salva do dia (se houver) ou na ordem padrão, com as de horário marcado no ponto certo.
+ */
+function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null, plan: DayPlan | null, forceOrder?: string[]): DayResult {
+  const dayStart = parseClock(plan?.startTime ?? settings.dayStart)
+  const here = startPoint(plan, current)
   const timeline = (list: AgendaItem[]) =>
     buildTimeline({
       base: settings.base,
-      dayStart: parseClock(settings.dayStart),
+      dayStart,
       speedKmh: settings.avgSpeedKmh,
       now: date === today() ? minutesOfDay(now) : null,
-      current,
+      current: here,
       stops: list.map((i) => toStopInput(i, settings, date)),
     })
   const arranged = arrangeByProgress(items)
   const started = arranged.filter((i) => !isPending(i) && i.visit?.status !== 'skipped')
   const skipped = arranged.filter((i) => i.visit?.status === 'skipped')
   const pending = arranged.filter(isPending)
-  // Pendentes sem horário seguem a rota; as com horário marcado entram no ponto certo do dia.
-  const untimed = pending.filter((i) => !i.time)
-  const draft = timeline([...started, ...untimed]).slice(started.length)
-  const ordered = mergeByTime(
-    untimed.map((item, i) => ({ item, arrival: draft[i].arrival })),
-    pending.filter((i) => i.time).map((item) => ({ item, time: parseClock(item.time!) })),
-  )
+  const order = forceOrder ?? plan?.order ?? []
+  let ordered: AgendaItem[]
+  if (order.length) {
+    ordered = applyOrder(pending, order, (i) => i.pool.id)
+  } else {
+    // Ordem padrão: sem horário seguem a rota; com horário marcado entram no ponto certo do dia.
+    const untimed = pending.filter((i) => !i.time)
+    const draft = timeline([...started, ...untimed]).slice(started.length)
+    ordered = mergeByTime(
+      untimed.map((item, i) => ({ item, arrival: draft[i].arrival })),
+      pending.filter((i) => i.time).map((item) => ({ item, time: parseClock(item.time!) })),
+    )
+  }
   const final = [...started, ...ordered, ...skipped]
   const plans = timeline(final)
   let n = 0
-  return final.map((item, i) => ({ item, plan: plans[i], position: item.visit?.status === 'skipped' ? null : ++n }))
+  const stops = final.map((item, i) => ({ item, plan: plans[i], position: item.visit?.status === 'skipped' ? null : ++n }))
+
+  const active = stops.filter((st) => st.item.visit?.status !== 'skipped')
+  const last = active.at(-1)
+  let back: DayResult['back'] = null
+  if (plan?.returnToBase && settings.base && last) {
+    const lastPoint = [...active].reverse().map((st) => pointOf(st.item)).find(Boolean) ?? null
+    const km = roadKm(lastPoint, settings.base)
+    const minutes = travelMinutes(km, settings.avgSpeedKmh)
+    back = { km, minutes, arrival: last.plan.departure + minutes }
+  }
+  const km = active.reduce((sum, st) => sum + (st.plan.km ?? 0), 0) + (back?.km ?? 0)
+  const driveMinutes = active.reduce((sum, st) => sum + st.plan.travelMinutes, 0) + (back?.minutes ?? 0)
+  return { stops, back, totals: { km, driveMinutes, end: back?.arrival ?? last?.plan.departure ?? null } }
+}
+
+/**
+ * Melhor ordem para as pendentes: as com localização pelo caminho mais curto (a partir de onde o
+ * dia começa ou da última visita feita), as com horário marcado encaixadas pelo horário e as sem
+ * localização no fim.
+ */
+function bestOrder(result: DayResult, settings: Settings, plan: DayPlan | null, current: GeoPoint | null): string[] {
+  const pending = result.stops.filter((st) => isPending(st.item))
+  const lastDone = [...result.stops].reverse().find((st) => st.item.visit && !isPending(st.item) && st.item.visit.status !== 'skipped' && pointOf(st.item))
+  const from = lastDone ? pointOf(lastDone.item) : (startPoint(plan, current) ?? settings.base)
+  const untimed = pending.filter((st) => !st.item.time && pointOf(st.item))
+  const idx = optimizeOrder(from, untimed.map((st) => pointOf(st.item)!))
+  const optimized = idx.map((i) => untimed[i])
+  // Estima as chegadas da ordem otimizada para encaixar os horários marcados.
+  let clock = parseClock(plan?.startTime ?? settings.dayStart)
+  let pos = from
+  const arrivals = optimized.map((st) => {
+    clock += travelMinutes(roadKm(pos, pointOf(st.item)), settings.avgSpeedKmh)
+    pos = pointOf(st.item)
+    const arrival = clock
+    clock += st.item.pool.serviceMinutes ?? settings.defaultServiceMinutes
+    return arrival
+  })
+  const merged = mergeByTime(
+    optimized.map((st, i) => ({ item: st.item, arrival: arrivals[i] })),
+    pending.filter((st) => st.item.time).map((st) => ({ item: st.item, time: parseClock(st.item.time!) })),
+  )
+  const noPoint = pending.filter((st) => !st.item.time && !pointOf(st.item)).map((st) => st.item)
+  return [...merged, ...noPoint].map((i) => i.pool.id)
 }
 
 /** Ações sobre uma visita do dia: iniciar, pular, remarcar, desmarcar. */
@@ -134,20 +206,21 @@ export function AgendaPage() {
   const pools = usePools()
   const visits = useVisitsInRange(weekStart, addDays(weekStart, 6))
   const settings = useSettings()
-  const savePools = useSavePools()
+  const dayPlan = useDayPlan(date)
+  const savePlan = useSaveDayPlan()
   const actions = useVisitActions(date)
-  const [reordering, setReordering] = useState(false)
   const [menuFor, setMenuFor] = useState<AgendaItem | null>(null)
   const [highlight, setHighlight] = useState<string | null>(null)
+  const [planner, setPlanner] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const setDate = (next: string) => {
-    setReordering(false)
     setHighlight(null)
     setParams(next === today() ? {} : { data: next }, { replace: true })
   }
   const isToday = date === today()
   const error = clients.error ?? pools.error ?? visits.error ?? settings.error
-  const ready = Boolean(clients.data && pools.data && visits.data && settings.data)
+  const ready = Boolean(clients.data && pools.data && visits.data && settings.data && !dayPlan.isPending)
 
   const week = useMemo(() => {
     if (!ready) return null
@@ -164,26 +237,26 @@ export function AgendaPage() {
   )
   const me = useMyLocation()
   const [focusMe, setFocusMe] = useState(0)
+  const plan = dayPlan.data ?? null
   // A previsão usa a posição real só no dia de hoje.
-  const stops = ready ? planDay(agenda, settings.data!, date, now, isToday ? me.point : null) : []
+  const current = isToday ? me.point : null
+  const result = ready ? planDay(agenda, settings.data!, date, now, current, plan) : null
+  const stops = result?.stops ?? []
   const progress = agendaProgress(agenda)
-  const pendingStops = stops.filter((s) => isPending(s.item))
-  const next = isToday ? (stops.find((s) => s.item.visit?.status === 'in_progress') ?? pendingStops[0]) : undefined
-  const missingLocation = pendingStops.filter((s) => !pointOf(s.item)).length
-  const totalKm = stops.reduce((sum, s) => sum + (s.plan.km ?? 0), 0)
-  const last = [...stops].reverse().find((s) => s.item.visit?.status !== 'skipped')
+  const pendingStops = stops.filter((st) => isPending(st.item))
+  const next = isToday ? (stops.find((st) => st.item.visit?.status === 'in_progress') ?? pendingStops[0]) : undefined
+  const missingLocation = pendingStops.filter((st) => !pointOf(st.item)).length
   const route = routeUrl(agenda)
 
-  // Recria os marcadores só quando a ordem ou o estado das paradas muda, não a cada minuto.
-  const mapSignature = `${stops.map((s) => `${s.item.key}:${s.position}:${s.item.visit?.status}`).join('|')}#${next?.item.key ?? ''}`
+  const mapSignature = `${stops.map((st) => `${st.item.key}:${st.position}:${st.item.visit?.status}`).join('|')}#${next?.item.key ?? ''}`
   const mapStops = useMemo<MapStop[]>(
     () =>
-      stops.flatMap((s) => {
-        const p = pointOf(s.item)
+      stops.flatMap((st) => {
+        const p = pointOf(st.item)
         if (!p) return []
-        const st = s.item.visit?.status
-        const state: MapStop['state'] = st === 'done' ? 'done' : st === 'skipped' ? 'skipped' : next?.item.key === s.item.key ? 'next' : 'pending'
-        return [{ key: s.item.key, point: p, label: s.position ? String(s.position) : '–', title: s.item.client.name, state }]
+        const v = st.item.visit?.status
+        const state: MapStop['state'] = v === 'done' ? 'done' : v === 'skipped' ? 'skipped' : next?.item.key === st.item.key ? 'next' : 'pending'
+        return [{ key: st.item.key, point: p, label: st.position ? String(st.position) : '–', title: st.item.client.name, state }]
       }),
     [mapSignature], // oxlint-disable-line react-hooks/exhaustive-deps
   )
@@ -192,35 +265,35 @@ export function AgendaPage() {
     document.getElementById(`stop-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [])
 
-  const persistOrder = (orderedPending: AgendaItem[]) => {
-    const changed = reassignRouteOrder(pools.data!, orderedPending.map((i) => i.pool.id))
-    if (changed.length) savePools.mutate(changed)
-  }
-  function optimize() {
-    const lastDone = [...stops].reverse().find((s) => s.item.visit && !isPending(s.item) && s.item.visit.status !== 'skipped' && pointOf(s.item))
-    const start = lastDone ? pointOf(lastDone.item) : settings.data!.base
-    const located = pendingStops.filter((s) => pointOf(s.item))
-    const order = optimizeOrder(start, located.map((s) => pointOf(s.item)!))
-    persistOrder([...order.map((i) => located[i].item), ...pendingStops.filter((s) => !pointOf(s.item)).map((s) => s.item)])
-  }
-  function move(key: string, delta: number) {
-    const list = pendingStops.map((s) => s.item)
-    const i = list.findIndex((x) => x.key === key)
-    const j = i + delta
-    if (i < 0 || j < 0 || j >= list.length) return
-    ;[list[i], list[j]] = [list[j], list[i]]
-    persistOrder(list)
+  /** Salva o plano do dia com as mudanças (ordem, saída, volta). */
+  const updatePlan = (patch: Partial<DayPlan>) =>
+    savePlan.mutate({ ...(plan ?? emptyDayPlan(date)), ...patch, id: date, updatedAt: new Date().toISOString() })
+
+  // Arrastar e soltar: mouse no notebook, segurar a alça no celular.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  function onDragEnd(e: DragEndEvent) {
+    if (!e.over || e.active.id === e.over.id) return
+    const keys = pendingStops.map((st) => st.item.key)
+    const from = keys.indexOf(String(e.active.id))
+    const to = keys.indexOf(String(e.over.id))
+    if (from < 0 || to < 0) return
+    updatePlan({ order: moveItem(pendingStops, from, to).map((st) => st.item.pool.id) })
   }
 
   const dateLabel = parseIsoDate(date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
   const s = settings.data
+  const startLabel = plan?.startMode === 'base' || !current ? (s?.baseLabel || 'Casa') : 'Onde você está'
 
   return (
     <>
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-slate-500 first-letter:uppercase">{dateLabel}</p>
-          <h1 className="text-[26px] font-bold leading-tight tracking-tight">
+          <h1 className="text-[26px] font-bold leading-tight tracking-tight lg:text-3xl">
             {isToday ? `${greeting(now)}${s?.ownerName ? `, ${s.ownerName.split(' ')[0]}` : ''}` : 'Agenda'}
           </h1>
         </div>
@@ -231,100 +304,289 @@ export function AgendaPage() {
 
       {error ? <ErrorState error={error} /> : !ready ? <Loading /> : agenda.length === 0 ? (
         <EmptyState icon={<CalendarPlus className="size-8" />} title={isToday ? 'Nenhuma visita hoje' : 'Nenhuma visita neste dia'}>
-          {clients.data!.length === 0 ? 'Cadastre um cliente e defina os dias de visita.' : 'Agende uma visita avulsa ou defina a agenda fixa dos clientes.'}
-          <ButtonLink to={clients.data!.length === 0 ? '/clientes/novo' : `/agenda/nova?data=${date}`} className="mt-4">
-            {clients.data!.length === 0 ? 'Cadastrar cliente' : 'Agendar visita'}
-          </ButtonLink>
+          {clients.data!.length === 0 ? 'Cadastre um cliente e defina os dias de visita.' : 'Adicione paradas a este dia ou defina a agenda fixa dos clientes.'}
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {clients.data!.length === 0
+              ? <ButtonLink to="/clientes/novo">Cadastrar cliente</ButtonLink>
+              : <Button onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden /> Adicionar parada</Button>}
+          </div>
         </EmptyState>
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
           <div className="lg:sticky lg:top-8">
-          <section className="mb-4 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card">
-            <div className="relative z-0 h-56 lg:h-[22rem]">
-              <button
-                type="button"
-                onClick={() => { me.start(); setFocusMe((n) => n + 1) }}
-                className={cn('absolute top-3 right-3 z-[500] inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-semibold shadow-card ring-1 ring-slate-200 transition-colors hover:bg-slate-50', me.status === 'on' ? 'text-brand-700' : 'text-slate-700')}
-                aria-label="Mostrar minha localização no mapa"
-              >
-                {me.status === 'asking' ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <LocateFixed className="size-4" aria-hidden />}
-                {me.status === 'denied' ? 'Localização bloqueada' : me.status === 'on' ? 'Você' : 'Minha localização'}
-              </button>
-              <Suspense fallback={<div className="h-full animate-pulse bg-slate-100" />}>
-                <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} me={me.point} accuracy={me.accuracy} focusMe={focusMe} />
-              </Suspense>
-            </div>
-            <div className="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
-              <Metric label="Visitas" value={`${progress.done}/${progress.total}`} />
-              <Metric label="Percurso" value={totalKm ? formatKm(totalKm) : '—'} />
-              <Metric label="Término" value={last ? formatClock(last.plan.departure) : '—'} />
-            </div>
-          </section>
-
-          {next && <NextCard stop={next} onStart={actions.start} busy={actions.busy} />}
-          {isToday && !next && (
-            <Card className="mb-4 flex items-center gap-3 bg-emerald-50/60">
-              <CheckCircle2 className="size-8 shrink-0 text-emerald-600" aria-hidden />
-              <div><p className="font-semibold text-emerald-900">Dia concluído!</p><p className="text-sm text-emerald-800/80">Todas as visitas foram registradas.</p></div>
-            </Card>
-          )}
-
-          {missingLocation > 0 && (
-            <p className="mb-3 flex items-start gap-2 rounded-2xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
-              <MapPinOff className="mt-0.5 size-4 shrink-0" aria-hidden />
-              {missingLocation} cliente(s) sem localização ficam fora do mapa e com previsão estimada.
-            </p>
-          )}
-
-          </div>
-          <div>
-          <div className="mt-6 mb-2.5 flex items-center justify-between gap-2 lg:mt-0">
-            <h2 className="text-[15px] font-semibold text-slate-800">Ordem de chegada</h2>
-            {pendingStops.length > 1 && (
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" onClick={optimize} loading={savePools.isPending} disabled={pendingStops.length - missingLocation < 2}>
-                  <Sparkles className="size-4" aria-hidden /> Otimizar
-                </Button>
-                <Button variant={reordering ? 'primary' : 'ghost'} size="sm" onClick={() => setReordering(!reordering)} aria-pressed={reordering}>
-                  {reordering ? 'Pronto' : 'Ajustar'}
-                </Button>
+            <section className="mb-4 overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-card">
+              <div className="relative z-0 h-56 lg:h-[22rem]">
+                <button
+                  type="button"
+                  onClick={() => { me.start(); setFocusMe((n) => n + 1) }}
+                  className={cn('absolute top-3 right-3 z-[500] inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-[13px] font-semibold shadow-card ring-1 ring-slate-200 transition-colors hover:bg-slate-50', me.status === 'on' ? 'text-brand-700' : 'text-slate-700')}
+                  aria-label="Mostrar minha localização no mapa"
+                >
+                  {me.status === 'asking' ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : <LocateFixed className="size-4" aria-hidden />}
+                  {me.status === 'denied' ? 'Localização bloqueada' : me.status === 'on' ? 'Você' : 'Minha localização'}
+                </button>
+                <Suspense fallback={<div className="h-full animate-pulse bg-slate-100" />}>
+                  <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} me={me.point} accuracy={me.accuracy} focusMe={focusMe} loop={Boolean(plan?.returnToBase)} />
+                </Suspense>
               </div>
+              <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100">
+                <Metric label="Visitas" value={`${progress.done}/${progress.total}`} />
+                <Metric label="Percurso" value={result!.totals.km ? formatKm(result!.totals.km) : '—'} />
+                <Metric label="Dirigindo" value={result!.totals.driveMinutes ? formatDuration(result!.totals.driveMinutes) : '—'} />
+                <Metric label={result!.back ? 'Em casa' : 'Término'} value={result!.totals.end !== null ? formatClock(result!.totals.end) : '—'} />
+              </div>
+            </section>
+
+            {next && <NextCard stop={next} onStart={actions.start} busy={actions.busy} />}
+            {isToday && !next && (
+              <Card className="mb-4 flex items-center gap-3 bg-emerald-50/60">
+                <CheckCircle2 className="size-8 shrink-0 text-emerald-600" aria-hidden />
+                <div><p className="font-semibold text-emerald-900">Dia concluído!</p><p className="text-sm text-emerald-800/80">Todas as visitas foram registradas.</p></div>
+              </Card>
+            )}
+
+            {missingLocation > 0 && (
+              <p className="mb-3 flex items-start gap-2 rounded-2xl bg-amber-50 px-3.5 py-3 text-sm text-amber-900">
+                <MapPinOff className="mt-0.5 size-4 shrink-0" aria-hidden />
+                {missingLocation} cliente(s) sem localização ficam fora do mapa e com previsão estimada.
+              </p>
             )}
           </div>
 
-          <ol className="space-y-2.5">
-            {stops.map((stop, i) => (
-              <StopCard
-                key={stop.item.key}
-                stop={stop}
-                leaving={i === 0 ? `Saída ${s!.dayStart}${s!.baseLabel ? ` · ${s!.baseLabel}` : ''}` : null}
-                highlighted={highlight === stop.item.key}
-                reordering={reordering && isPending(stop.item)}
-                canUp={pendingStops[0]?.item.key !== stop.item.key}
-                canDown={pendingStops.at(-1)?.item.key !== stop.item.key}
-                onMove={(d) => move(stop.item.key, d)}
-                onStart={() => actions.start(stop.item)}
-                onMenu={() => setMenuFor(stop.item)}
-                allowStart={date <= today()}
-                busy={actions.busy}
-              />
-            ))}
-          </ol>
+          <div>
+            <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2 lg:mt-0">
+              <div>
+                <h2 className="text-[15px] font-semibold text-slate-800">Ordem de chegada</h2>
+                <p className="text-xs text-slate-500">{plan?.order.length ? 'Rota montada para este dia' : 'Ordem padrão'} · arraste para mudar</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setAdding(true)}><Plus className="size-4" aria-hidden /> Parada</Button>
+                <Button size="sm" onClick={() => setPlanner(true)}><Sparkles className="size-4" aria-hidden /> Montar rota</Button>
+              </div>
+            </div>
 
-          {route && (
-            <ExternalButton href={route} variant="secondary" className="mt-4 w-full">
-              <RouteIcon className="size-4" aria-hidden /> Abrir rota completa no Google Maps
-            </ExternalButton>
-          )}
-          <p className="mt-3 text-center text-xs text-slate-400">
-            Previsão com {s!.avgSpeedKmh} km/h de média e {s!.defaultServiceMinutes} min por piscina · <Link to="/mais/ajustes" className="underline">ajustar</Link>
-          </p>
+            <p className="mb-1.5 flex items-center gap-1.5 pl-1 text-xs text-slate-500">
+              <Home className="size-3.5" aria-hidden /> Saída {plan?.startTime ?? s!.dayStart} · {startLabel}
+            </p>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              <SortableContext items={pendingStops.map((st) => st.item.key)} strategy={verticalListSortingStrategy}>
+                <ol className="space-y-2.5">
+                  {stops.map((stop) => (
+                    <SortableStop
+                      key={stop.item.key}
+                      stop={stop}
+                      highlighted={highlight === stop.item.key}
+                      onStart={() => actions.start(stop.item)}
+                      onMenu={() => setMenuFor(stop.item)}
+                      allowStart={date <= today()}
+                      busy={actions.busy}
+                    />
+                  ))}
+                </ol>
+              </SortableContext>
+            </DndContext>
+            {result!.back && (
+              <p className="mt-2.5 flex items-center gap-1.5 pl-1 text-xs text-slate-500">
+                <Car className="size-3.5" aria-hidden /> Volta para {s!.baseLabel || 'casa'}: {formatDuration(result!.back.minutes)}{result!.back.km !== null && ` · ${formatKm(result!.back.km)}`} · chega {formatClock(result!.back.arrival)}
+              </p>
+            )}
+            {savePlan.error && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{(savePlan.error as Error).message}</p>}
+
+            {route && (
+              <ExternalButton href={route} variant="secondary" className="mt-4 w-full">
+                <RouteIcon className="size-4" aria-hidden /> Abrir rota completa no Google Maps
+              </ExternalButton>
+            )}
+            <p className="mt-3 text-center text-xs text-slate-400">
+              Previsão com {s!.avgSpeedKmh} km/h de média e {s!.defaultServiceMinutes} min por piscina · <Link to="/mais/ajustes" className="underline">ajustar</Link>
+            </p>
           </div>
         </div>
       )}
 
       {menuFor && <VisitMenu key={menuFor.key} item={menuFor} date={date} onClose={() => setMenuFor(null)} actions={actions} />}
+      {planner && result && (
+        <RoutePlanner
+          date={date}
+          plan={plan}
+          settings={s!}
+          hasGps={Boolean(current)}
+          current={result}
+          compute={(patch, order) => planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, order)}
+          best={(patch) => bestOrder(planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }), s!, { ...(plan ?? emptyDayPlan(date)), ...patch }, current)}
+          onSave={(patch) => updatePlan(patch)}
+          onClose={() => setPlanner(false)}
+        />
+      )}
+      {adding && clients.data && pools.data && (
+        <AddStopSheet
+          date={date}
+          clients={clients.data}
+          pools={pools.data}
+          busyIds={new Set(agenda.map((i) => i.pool.id))}
+          onAdded={(poolId) => { if (plan?.order.length) updatePlan({ order: [...plan.order, poolId] }) }}
+          onClose={() => setAdding(false)}
+        />
+      )}
     </>
+  )
+}
+
+/** Monta a rota do dia: saída, de onde, volta para casa e a melhor ordem comparada com a atual. */
+function RoutePlanner({ date, plan, settings, hasGps, current, compute, best, onSave, onClose }: {
+  date: string; plan: DayPlan | null; settings: Settings; hasGps: boolean; current: DayResult
+  compute: (patch: Partial<DayPlan>, order?: string[]) => DayResult
+  best: (patch: Partial<DayPlan>) => string[]
+  onSave: (patch: Partial<DayPlan>) => void
+  onClose: () => void
+}) {
+  const [startTime, setStartTime] = useState(plan?.startTime ?? settings.dayStart)
+  const [startMode, setStartMode] = useState<DayPlan['startMode']>(plan?.startMode ?? 'auto')
+  const [returnToBase, setReturnToBase] = useState(plan?.returnToBase ?? false)
+  const patch: Partial<DayPlan> = { startTime: startTime === settings.dayStart ? null : startTime, startMode, returnToBase }
+  const nowResult = compute(patch)
+  const nowIds = nowResult.stops.filter((st) => isPending(st.item)).map((st) => st.item.pool.id)
+  // Horários combinados podem fazer a sugestão sair pior: aí a ordem atual continua sendo a melhor.
+  const suggested = best(patch)
+  const suggestedResult = compute(patch, suggested)
+  const better = suggestedResult.totals.km < nowResult.totals.km - 0.05
+  const bestIds = better ? suggested : nowIds
+  const bestResult = better ? suggestedResult : nowResult
+  const savedKm = nowResult.totals.km - bestResult.totals.km
+  const savedMin = nowResult.totals.driveMinutes - bestResult.totals.driveMinutes
+  const sameOrder = !better
+  void current
+  const label = parseIsoDate(date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  return (
+    <Sheet open wide title="Montar rota" subtitle={<span className="first-letter:uppercase">{label}</span>} onClose={onClose}>
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Saída">
+            <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value || settings.dayStart)} />
+          </Field>
+          <Field label="Começar de">
+            <Select value={startMode} onChange={(e) => setStartMode(e.target.value as DayPlan['startMode'])}>
+              <option value="auto">{hasGps ? 'Onde estou (GPS)' : 'Automático'}</option>
+              <option value="base">{settings.baseLabel || 'Casa'}</option>
+            </Select>
+          </Field>
+        </div>
+        <label className={cn('flex items-center gap-3 rounded-2xl border border-slate-100 p-3.5 text-sm', !settings.base && 'opacity-60')}>
+          <input type="checkbox" className="size-5 accent-brand-600" disabled={!settings.base} checked={returnToBase} onChange={(e) => setReturnToBase(e.target.checked)} />
+          <span className="flex-1"><span className="block font-semibold">Voltar para {settings.baseLabel || 'casa'} no fim</span>
+            <span className="text-slate-500">{settings.base ? 'Soma a volta no percurso e no horário de término.' : 'Defina o ponto de partida em Empresa e roteiro.'}</span></span>
+        </label>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <PlanCard title="Ordem atual" result={nowResult} />
+          <PlanCard title="Melhor rota" result={bestResult} highlight />
+        </div>
+        {!sameOrder && savedKm > 0.05 ? (
+          <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            A melhor rota economiza {formatKm(savedKm)}{savedMin > 0 ? ` e ${formatDuration(savedMin)} no trânsito` : ''}.
+          </p>
+        ) : (
+          <p className="rounded-2xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-800">Sua ordem atual já é a melhor rota.</p>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button variant="secondary" onClick={() => { onSave(patch); onClose() }}>Salvar sem mudar a ordem</Button>
+          <Button onClick={() => { onSave({ ...patch, order: bestIds }); onClose() }} disabled={sameOrder}><Sparkles className="size-4" aria-hidden /> Usar a melhor rota</Button>
+        </div>
+        {plan?.order.length ? (
+          <button type="button" className="w-full text-center text-sm font-medium text-slate-500 hover:text-slate-700" onClick={() => { onSave({ ...patch, order: [] }); onClose() }}>
+            Voltar para a ordem padrão
+          </button>
+        ) : null}
+      </div>
+    </Sheet>
+  )
+}
+
+function PlanCard({ title, result, highlight }: { title: string; result: DayResult; highlight?: boolean }) {
+  const pending = result.stops.filter((st) => isPending(st.item))
+  return (
+    <div className={cn('rounded-2xl border p-4', highlight ? 'border-brand-200 bg-brand-50/50' : 'border-slate-100')}>
+      <p className={cn('text-sm font-semibold', highlight ? 'text-brand-700' : 'text-slate-600')}>{title}</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <div><p className="text-[11px] text-slate-500 uppercase">Percurso</p><p className="font-bold tabular-nums">{formatKm(result.totals.km)}</p></div>
+        <div><p className="text-[11px] text-slate-500 uppercase">Dirigindo</p><p className="font-bold tabular-nums">{formatDuration(result.totals.driveMinutes)}</p></div>
+        <div><p className="text-[11px] text-slate-500 uppercase">Termina</p><p className="font-bold tabular-nums">{result.totals.end !== null ? formatClock(result.totals.end) : '—'}</p></div>
+      </div>
+      <ol className="mt-3 space-y-1 text-sm">
+        {pending.map((st) => (
+          <li key={st.item.key} className="flex items-center gap-2">
+            <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', highlight ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-600')}>{st.position}</span>
+            <span className="min-w-0 flex-1 truncate">{st.item.client.name}</span>
+            <span className="text-xs text-slate-500 tabular-nums">{formatClock(st.plan.arrival)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+/** Adiciona uma parada a este dia sem sair da agenda. */
+function AddStopSheet({ date, clients, pools, busyIds, onAdded, onClose }: {
+  date: string; clients: Client[]; pools: Pool[]; busyIds: Set<string>; onAdded: (poolId: string) => void; onClose: () => void
+}) {
+  const [clientId, setClientId] = useState('')
+  const [poolId, setPoolId] = useState('')
+  const [time, setTime] = useState('')
+  const saveVisit = useSaveVisit()
+  const savePool = useSavePool()
+  const clientPools = pools.filter((p) => p.clientId === clientId)
+  const pool = clientPools.find((p) => p.id === poolId) ?? clientPools[0]
+  const already = pool ? busyIds.has(pool.id) : false
+
+  async function add() {
+    if (!clientId) return
+    let target = pool
+    if (!target) {
+      // Cliente sem piscina: cria a "Principal" para poder agendar.
+      target = {
+        id: newId(), clientId, name: 'Principal', volumeLiters: 0, type: 'vinil', sanitizer: 'cloro', equipment: '', accessNotes: '',
+        recurrence: 'none', visitDays: [], monthDays: [], anchorDate: null, preferredTime: null,
+        routeOrder: Math.max(0, ...pools.map((p) => p.routeOrder)) + 1, serviceMinutes: null, createdAt: new Date().toISOString(),
+      }
+      await savePool.mutateAsync(target)
+    }
+    await saveVisit.mutateAsync(newVisit(target, date, { status: 'scheduled', time: time || null }))
+    onAdded(target.id)
+    onClose()
+  }
+
+  return (
+    <Sheet open title="Adicionar parada" subtitle={<span className="first-letter:uppercase">{parseIsoDate(date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>} onClose={onClose}>
+      <div className="space-y-4 pb-2">
+        <ClientPicker clients={clients} value={clientId} onChange={(id) => { setClientId(id); setPoolId('') }} poolCount={(id) => pools.filter((p) => p.clientId === id).length} />
+        {clientPools.length > 1 && (
+          <Field label="Piscina">
+            <Select value={pool?.id ?? ''} onChange={(e) => setPoolId(e.target.value)}>
+              {clientPools.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
+          </Field>
+        )}
+        <Field label="Horário combinado (opcional)"><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
+        {already && <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">Esta piscina já está na agenda deste dia.</p>}
+        <Button className="h-12 w-full" disabled={!clientId || already} loading={saveVisit.isPending || savePool.isPending} onClick={add}>
+          <Plus className="size-4" aria-hidden /> Adicionar ao dia
+        </Button>
+      </div>
+    </Sheet>
+  )
+}
+
+/** Visita da lista: pendentes podem ser arrastadas. */
+function SortableStop(props: Omit<StopCardProps, 'drag'>) {
+  const pending = isPending(props.stop.item)
+  const sortable = useSortable({ id: props.stop.item.key, disabled: !pending })
+  const style = { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }
+  return (
+    <li ref={sortable.setNodeRef} style={style} id={`stop-${props.stop.item.key}`} className={cn('relative', sortable.isDragging && 'z-20')}>
+      <StopCard {...props} drag={pending ? { attributes: sortable.attributes, listeners: sortable.listeners, dragging: sortable.isDragging } : null} />
+    </li>
   )
 }
 
@@ -430,29 +692,44 @@ function NextCard({ stop, onStart, busy }: { stop: Stop; onStart: (i: AgendaItem
   )
 }
 
-function StopCard({ stop, leaving, highlighted, reordering, canUp, canDown, onMove, onStart, onMenu, allowStart, busy }: {
-  stop: Stop; leaving: string | null; highlighted: boolean; reordering: boolean; canUp: boolean; canDown: boolean
-  onMove: (d: number) => void; onStart: () => void; onMenu: () => void; allowStart: boolean; busy: boolean
-}) {
+interface StopCardProps {
+  stop: Stop; highlighted: boolean; onStart: () => void; onMenu: () => void; allowStart: boolean; busy: boolean
+  drag: { attributes: DraggableAttributes; listeners: SyntheticListenerMap | undefined; dragging: boolean } | null
+}
+
+function StopCard({ stop, highlighted, onStart, onMenu, allowStart, busy, drag }: StopCardProps) {
   const { item, plan, position } = stop
   const v = item.visit
   const done = v?.status === 'done'
   const skipped = v?.status === 'skipped'
   const inProgress = v?.status === 'in_progress'
+  const leaving = plan.travelMinutes > 0 ? formatClock(plan.arrival - plan.travelMinutes) : null
   return (
-    <li id={`stop-${item.key}`}>
+    <>
       {!skipped && (
         <p className="mb-1.5 flex items-center gap-1.5 pl-1 text-xs text-slate-400">
           <Car className="size-3.5" aria-hidden />
-          {leaving ? `${leaving} → ` : ''}{formatDuration(plan.travelMinutes)}{plan.km !== null ? ` · ${formatKm(plan.km)}` : ' · estimado'}
+          {leaving ? `sai ${leaving} · ` : ''}{formatDuration(plan.travelMinutes)}{plan.km !== null ? ` · ${formatKm(plan.km)}` : ' · estimado'}
         </p>
       )}
       <div className={cn(
-        'rounded-2xl border bg-white p-3.5 shadow-card transition-colors',
+        'rounded-2xl border bg-white p-3.5 shadow-card transition-[colors,box-shadow]',
+        drag?.dragging && 'shadow-float ring-2 ring-brand-300',
         highlighted ? 'border-brand-300 ring-4 ring-brand-100' : 'border-slate-100',
         (done || skipped) && 'bg-slate-50/80',
       )}>
         <div className="flex items-start gap-3">
+          {drag && (
+            <button
+              type="button"
+              className="-ml-1.5 flex h-10 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-slate-300 hover:bg-slate-50 hover:text-slate-500 active:cursor-grabbing"
+              aria-label={`Arrastar para mudar a ordem: ${item.client.name}`}
+              {...drag.attributes}
+              {...drag.listeners}
+            >
+              <GripVertical className="size-5" aria-hidden />
+            </button>
+          )}
           <span
             className={cn(
               'flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold',
@@ -481,12 +758,7 @@ function StopCard({ stop, leaving, highlighted, reordering, canUp, canDown, onMo
             </div>
           )}
         </div>
-        {reordering ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="secondary" size="sm" disabled={!canUp} onClick={() => onMove(-1)} aria-label={`Antes: ${item.client.name}`}><ArrowUp className="size-4" /> Antes</Button>
-            <Button variant="secondary" size="sm" disabled={!canDown} onClick={() => onMove(1)} aria-label={`Depois: ${item.client.name}`}><ArrowDown className="size-4" /> Depois</Button>
-          </div>
-        ) : (
+        {(
           <div className="mt-3 flex gap-2">
             {isPending(item) ? (
               allowStart
@@ -501,7 +773,7 @@ function StopCard({ stop, leaving, highlighted, reordering, canUp, canDown, onMo
           </div>
         )}
       </div>
-    </li>
+    </>
   )
 }
 

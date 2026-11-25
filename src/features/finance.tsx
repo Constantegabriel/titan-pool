@@ -47,14 +47,18 @@ export function FinancePage() {
         subtitle={<span className="first-letter:uppercase inline-block">{formatPeriod(period)}</span>}
         action={<ButtonLink to={`/financeiro/lancamento/novo?mes=${period}`} size="sm"><Plus className="size-4" aria-hidden /> Lançar</ButtonLink>}
       />
-      <div className="mb-3 flex items-center gap-2">
+      <div className="lg:mb-2 lg:flex lg:items-center lg:justify-between lg:gap-6">
+      <div className="mb-3 flex items-center gap-2 lg:mb-0">
         <Button variant="secondary" size="sm" aria-label="Mês anterior" onClick={() => go({ mes: shiftPeriod(period, -1) })}><ChevronLeft className="size-4" /></Button>
         <Button variant={period === periodOf(today()) ? 'primary' : 'secondary'} size="sm" onClick={() => go({ mes: periodOf(today()) })}>Mês atual</Button>
         <Button variant="secondary" size="sm" aria-label="Próximo mês" onClick={() => go({ mes: shiftPeriod(period, 1) })}><ChevronRight className="size-4" /></Button>
       </div>
+      <div className="lg:w-[28rem]">
       <Segmented label="Seções do financeiro" value={tab} onChange={(aba) => go({ aba })} options={[
         { value: 'resumo', label: 'Resumo' }, { value: 'mensalidades', label: 'Mensalidades' }, { value: 'lancamentos', label: 'Lançamentos' },
       ]} />
+      </div>
+      </div>
       {error ? <ErrorState error={error} /> : !ready ? <Loading /> : tab === 'resumo' ? (
         <Summary period={period} clients={clients.data!} charges={charges.data!} transactions={transactions.data!} onTab={(aba) => go({ aba })} />
       ) : tab === 'mensalidades' ? (
@@ -74,7 +78,8 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
   const maxCat = Math.max(1, ...r.expensesByCategory.map((c) => c.cents))
 
   return (
-    <>
+    <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+    <div>
       <section className={cn('rounded-3xl p-4 text-white shadow-lg', r.profitCents >= 0 ? 'bg-gradient-to-br from-brand-700 to-brand-700 shadow-brand-900/20' : 'bg-gradient-to-br from-rose-700 to-rose-800 shadow-rose-900/20')}>
         <p className="text-sm text-white/80">Lucro do mês (recebido − gasto)</p>
         <p className="mt-1 text-3xl font-bold tabular-nums">{formatMoney(r.profitCents)}</p>
@@ -107,6 +112,8 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
         </Card>
       )}
 
+    </div>
+    <div className="lg:[&>div:first-child]:mt-0">
       <SectionTitle>Margem por cliente</SectionTitle>
       {margins.length === 0 ? <p className="text-sm text-slate-500">Gere as mensalidades para ver a margem de cada cliente.</p> : (
         <ListCard>
@@ -131,7 +138,8 @@ function Summary({ period, clients, charges, transactions, onTab }: { period: st
         title={`Financeiro ${formatPeriod(period)}`}
         make={async () => (await loadPdf()).monthReportPdf({ period, result: r, charges, transactions, margins, clients, settings: settings.data! })}
       />
-    </>
+    </div>
+    </div>
   )
 }
 
@@ -145,7 +153,7 @@ function Fees({ period, clients, charges }: { period: string; clients: Client[];
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+      <div className="mb-4 grid grid-cols-3 gap-2 text-center lg:gap-4">
         <MiniStat label="Recebido" value={formatMoney(sum('paid'))} className="text-emerald-700" />
         <MiniStat label="Em aberto" value={formatMoney(sum('open'))} />
         <MiniStat label="Atrasado" value={formatMoney(sum('overdue'))} className={sum('overdue') ? 'text-rose-700' : undefined} />
@@ -159,7 +167,7 @@ function Fees({ period, clients, charges }: { period: string; clients: Client[];
       {list.length === 0 ? (
         <EmptyState icon={<ReceiptText className="size-9" />} title="Nenhuma mensalidade neste mês">{missing === 0 && 'Cadastre o valor da mensalidade nos clientes.'}</EmptyState>
       ) : (
-        <ul className="space-y-3">{list.map((c) => byId.get(c.clientId) && <FeeCard key={c.id} charge={c} client={byId.get(c.clientId)!} />)}</ul>
+        <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">{list.map((c) => byId.get(c.clientId) && <FeeCard key={c.id} charge={c} client={byId.get(c.clientId)!} />)}</ul>
       )}
     </>
   )
@@ -210,7 +218,7 @@ function Ledger({ period, clients, transactions }: { period: string; clients: Cl
   const list = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:max-w-md">
         <ButtonLink to={`/financeiro/lancamento/novo?tipo=income&mes=${period}`} variant="secondary"><ArrowUpCircle className="size-4 text-emerald-600" aria-hidden /> Entrada</ButtonLink>
         <ButtonLink to={`/financeiro/lancamento/novo?tipo=expense&mes=${period}`} variant="secondary"><ArrowDownCircle className="size-4 text-rose-600" aria-hidden /> Saída</ButtonLink>
       </div>

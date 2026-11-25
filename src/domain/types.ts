@@ -222,3 +222,19 @@ export interface Transaction {
 
 export const EXPENSE_CATEGORIES = ['Produtos', 'Combustível', 'Equipamentos', 'Manutenção do veículo', 'Alimentação', 'Impostos', 'Outros'] as const
 export const INCOME_CATEGORIES = ['Serviço avulso', 'Repasse de produtos', 'Instalação/reparo', 'Outros'] as const
+
+/** De onde a rota do dia começa. auto = hoje sai de onde a pessoa está (se o GPS estiver ligado), senão de casa. */
+export type StartMode = 'auto' | 'base' | 'gps'
+
+/** Rota montada para um dia específico (ordem das visitas e como o dia começa/termina). */
+export interface DayPlan {
+  /** A própria data (AAAA-MM-DD): um plano por dia. */
+  id: IsoDate
+  /** Piscinas na ordem de visita. Paradas fora da lista entram no fim. */
+  order: Id[]
+  /** Horário de saída só deste dia; null usa o padrão dos ajustes. */
+  startTime: string | null
+  startMode: StartMode
+  returnToBase: boolean
+  updatedAt: string
+}

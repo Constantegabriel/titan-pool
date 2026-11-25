@@ -15,10 +15,10 @@ export function SuppliersPage() {
       {suppliers.error ? <ErrorState error={suppliers.error} /> : suppliers.isPending ? <Loading /> : suppliers.data.length === 0 ? (
         <EmptyState icon={<Store className="size-9" />} title="Nenhum fornecedor">Cadastre lojas e distribuidores com o WhatsApp para enviar pedidos com um toque.</EmptyState>
       ) : (
-        <ListCard>
+        <ListCard className="lg:grid lg:grid-cols-2 lg:gap-3 lg:divide-y-0 lg:overflow-visible lg:border-0 lg:bg-transparent lg:shadow-none xl:grid-cols-3">
           {[...suppliers.data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')).map((s) => (
             <li key={s.id}>
-              <Link to={`/mais/fornecedores/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+              <Link to={`/mais/fornecedores/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 lg:h-full lg:rounded-2xl lg:border lg:border-slate-100 lg:bg-white lg:p-4 lg:shadow-card lg:transition-shadow lg:hover:bg-white lg:hover:shadow-float">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{s.name}</p>
                   <p className="truncate text-sm text-slate-500">{[s.contact, s.phone].filter(Boolean).join(' · ') || 'Sem telefone'}</p>

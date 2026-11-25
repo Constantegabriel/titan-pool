@@ -1,3 +1,4 @@
+import { cn } from '@/lib/cn'
 import { Building2, ChevronRight, Download, HardDrive, ListChecks, LogOut, MessageCircle, ShieldCheck, Sparkles, Store, Upload } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, type ReactNode, useRef, useState } from 'react'
@@ -78,8 +79,9 @@ export function MorePage() {
       </ListCard>
       </div>
 
-      <AccountCard />
-
+      <div className={cn(repository.mode === 'cloud' ? 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-8' : 'lg:max-w-2xl')}>
+      {repository.mode === 'cloud' && <div><AccountCard /></div>}
+      <div className="lg:[&>div:first-child]:mt-0">
       <SectionTitle>Seus dados</SectionTitle>
       {repository.mode === 'local' && (
         <Card className="flex items-start gap-3">
@@ -101,6 +103,8 @@ export function MorePage() {
       {status && <p role="status" className="mt-2 text-center text-sm text-slate-600">{status}</p>}
 
       {repository.mode === 'cloud' && <DeviceDataImport onDone={() => qc.invalidateQueries()} />}
+      </div>
+      </div>
 
       <p className="mt-8 text-center text-xs text-slate-400">Titan Pool · para instalar, use “Adicionar à tela inicial” no navegador do celular.</p>
     </>

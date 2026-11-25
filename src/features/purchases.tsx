@@ -41,19 +41,19 @@ export function PurchasesPage() {
   return (
     <>
       <PageHeader title="Compras" subtitle="Pedidos e orçamentos com fornecedores" action={<ButtonLink to="/compras/nova" size="sm"><Plus className="size-4" aria-hidden /> Novo</ButtonLink>} />
-      <Segmented label="Filtrar pedidos" value={filter} onChange={setFilter} options={[{ value: 'open', label: 'Em aberto' }, { value: 'received', label: 'Recebidos' }, { value: 'all', label: 'Todos' }]} />
+      <div className="lg:max-w-md"><Segmented label="Filtrar pedidos" value={filter} onChange={setFilter} options={[{ value: 'open', label: 'Em aberto' }, { value: 'received', label: 'Recebidos' }, { value: 'all', label: 'Todos' }]} /></div>
       {purchases.error ? <ErrorState error={purchases.error} /> : purchases.isPending ? <Loading /> : list.length === 0 ? (
         <EmptyState icon={<ShoppingCart className="size-9" />} title={filter === 'open' ? 'Nenhum pedido em aberto' : 'Nenhum pedido'}>
           Monte a lista de itens, escolha o fornecedor e o cliente, e envie pelo WhatsApp.
           <ButtonLink to="/compras/nova" className="mt-4">Fazer pedido</ButtonLink>
         </EmptyState>
       ) : (
-        <ListCard>
+        <ListCard className="lg:grid lg:grid-cols-2 lg:gap-3 lg:divide-y-0 lg:overflow-visible lg:border-0 lg:bg-transparent lg:shadow-none xl:grid-cols-3">
           {list.map((p) => {
             const total = purchaseTotalCents(p)
             return (
               <li key={p.id}>
-                <Link to={`/compras/${p.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                <Link to={`/compras/${p.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 lg:h-full lg:rounded-2xl lg:border lg:border-slate-100 lg:bg-white lg:p-4 lg:shadow-card lg:transition-shadow lg:hover:bg-white lg:hover:shadow-float">
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2">
                       <span className="font-semibold tabular-nums">{formatOrderNumber(p.number)}</span>

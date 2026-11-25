@@ -92,14 +92,14 @@ function Sidebar() {
 
 export function Layout() {
   const { pathname } = useLocation()
-  // A agenda usa duas colunas no notebook; as demais telas ficam numa coluna confortável de ler.
-  const wide = pathname === '/'
+  // No notebook as telas usam a largura toda; formulários ficam numa coluna confortável de preencher.
+  const wide = !/\/(novo|nova|editar)$|\/mais\/ajustes$|\/lancamento\/|^\/visitas\//.test(pathname)
   return (
     <div className="min-h-svh">
       <Sidebar />
       <div className="lg:pl-64">
         <TrialBanner />
-        <main key={pathname} className={cn('tp-page mx-auto px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-32 lg:px-8 lg:pt-8 lg:pb-12', wide ? 'max-w-2xl lg:max-w-6xl' : 'max-w-2xl lg:max-w-3xl')}>
+        <main key={pathname} className={cn('tp-page mx-auto px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-32 lg:px-8 lg:pt-8 lg:pb-12', wide ? 'max-w-2xl lg:max-w-6xl' : 'max-w-2xl lg:max-w-4xl')}>
           <Outlet />
         </main>
       </div>

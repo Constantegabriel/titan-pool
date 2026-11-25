@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getWorkspaceId } from './workspace'
 import { shiftPeriod } from '@/domain/dates'
 import {
-  type CatalogItem, type Charge, type Client, DEFAULT_SETTINGS, type Id, type Pool, type Purchase, type Settings,
+  type CatalogItem, type Charge, type DayPlan, type Client, DEFAULT_SETTINGS, type Id, type Pool, type Purchase, type Settings,
   type Supplier, type Transaction, type Visit,
 } from '@/domain/types'
 import { type Repository, type Snapshot, nowIso } from './repository'
@@ -145,6 +145,38 @@ export class SupabaseRepository implements Repository {
   }
   saveTransaction = async (t: Transaction) => (await this.upsert('transactions', [toRow(t)]), t)
   deleteTransaction = (id: Id) => this.remove('transactions', id)
+
+  /* Rota por dia. Se o banco ainda não tem a tabela day_plans, o app segue com a ordem padrão. */
+  private missingTable(error: unknown) {
+    const e = error as { code?: string; message?: string } | null
+    return e?.code === 'PGRST205' || e?.code === '42P01' || /day_plans/.test(e?.message ?? '')
+  }
+  async listDayPlans(from: string, to: string): Promise<DayPlan[]> {
+    const { data, error } = await this.sb.from('day_plans').select('*').gte('date', from).lte('date', to)
+    if (error) {
+      if (this.missingTable(error)) return []
+      throw error
+    }
+    return ((data as Row[] | null) ?? []).map((r) => ({
+      id: r.date as string, order: (r.stop_order as string[]) ?? [], startTime: (r.start_time as string | null) ?? null,
+      startMode: (r.start_mode as DayPlan['startMode']) ?? 'auto', returnToBase: Boolean(r.return_to_base), updatedAt: r.updated_at as string,
+    }))
+  }
+  async saveDayPlan(plan: DayPlan) {
+    const { error } = await this.sb.from('day_plans').upsert(
+      { date: plan.id, stop_order: plan.order, start_time: plan.startTime, start_mode: plan.startMode, return_to_base: plan.returnToBase, updated_at: plan.updatedAt },
+      { onConflict: 'owner_id,date' },
+    )
+    if (error) {
+      if (this.missingTable(error)) throw new Error('Para salvar a rota de cada dia, rode a atualização do banco (day_plans) no Supabase.')
+      throw error
+    }
+    return plan
+  }
+  async deleteDayPlan(date: string) {
+    const { error } = await this.sb.from('day_plans').delete().eq('date', date)
+    if (error && !this.missingTable(error)) throw error
+  }
 
   async uploadPhoto(visitId: Id, photo: Blob) {
     // Pasta = conta do usuário; as regras do armazenamento só aceitam a pasta da própria conta.

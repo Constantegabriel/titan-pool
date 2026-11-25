@@ -27,7 +27,9 @@ export function CatalogPage() {
   return (
     <>
       <PageHeader title="Lista de itens" subtitle="Produtos e materiais que você compra com frequência" back="/mais" />
-      <Card className="mb-4 space-y-2">
+      <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <Card className="mb-4 space-y-2 lg:sticky lg:top-8">
+        <p className="hidden text-sm font-semibold text-slate-700 lg:block">Adicionar item</p>
         <Input placeholder="Novo item (ex.: Cloro granulado 10 kg)" aria-label="Nome do item" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-[6rem_1fr_auto] gap-2">
           <Select aria-label="Unidade" value={unit} onChange={(e) => setUnit(e.target.value as ItemUnit)}>{ITEM_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
@@ -57,6 +59,7 @@ export function CatalogPage() {
           )}
         </ListCard>
       )}
+      </div>
     </>
   )
 }

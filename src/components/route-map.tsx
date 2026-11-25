@@ -18,13 +18,15 @@ export interface MapStop {
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION = '© OpenStreetMap'
 
-export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe }: {
+export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe, loop }: {
   base: GeoPoint | null; stops: MapStop[]; onSelect?: (key: string) => void
   /** Posição atual do aparelho. */
   me?: GeoPoint | null
   accuracy?: number | null
   /** Muda quando a pessoa pede para centralizar nela. */
   focusMe?: number
+  /** Desenha a volta para o ponto de partida. */
+  loop?: boolean
 }) {
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -61,6 +63,9 @@ export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe 
     for (const s of active) points.push([s.point.lat, s.point.lng])
     if (points.length > 1) {
       L.polyline(points, { color: '#1f62e8', weight: 4, opacity: 0.75, dashArray: '2 8', lineCap: 'round' }).addTo(group)
+      if (loop && base) {
+        L.polyline([points[points.length - 1], [base.lat, base.lng]], { color: '#64748b', weight: 3, opacity: 0.6, dashArray: '2 8', lineCap: 'round' }).addTo(group)
+      }
     }
     for (const s of stops) {
       const size = s.state === 'next' ? 34 : 28
@@ -76,7 +81,7 @@ export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe 
     if (all.length === 1) m.setView(all[0], 14)
     else if (all.length > 1) m.fitBounds(L.latLngBounds(all), { padding: [36, 36], maxZoom: 15 })
     else m.setView([-15.78, -47.93], 4)
-  }, [base, stops, onSelect])
+  }, [base, stops, onSelect, loop])
 
   // "Você está aqui": ponto azul pulsando e o círculo de precisão; não mexe no enquadramento.
   useEffect(() => {

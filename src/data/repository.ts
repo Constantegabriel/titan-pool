@@ -1,5 +1,5 @@
 import type {
-  CatalogItem, Charge, Client, Id, IsoDate, Period, Pool, Purchase, Settings, Supplier, Transaction, Visit,
+  CatalogItem, DayPlan, Charge, Client, Id, IsoDate, Period, Pool, Purchase, Settings, Supplier, Transaction, Visit,
 } from '@/domain/types'
 
 /**
@@ -53,6 +53,11 @@ export interface Repository {
   saveTransaction(transaction: Transaction): Promise<Transaction>
   deleteTransaction(id: Id): Promise<void>
 
+  /** Rotas montadas por dia (vazio quando o banco ainda não tem a tabela). */
+  listDayPlans(from: IsoDate, to: IsoDate): Promise<DayPlan[]>
+  saveDayPlan(plan: DayPlan): Promise<DayPlan>
+  deleteDayPlan(date: IsoDate): Promise<void>
+
   /** Armazena a foto (já comprimida) e devolve uma URL exibível. */
   uploadPhoto(visitId: Id, photo: Blob): Promise<string>
 
@@ -71,6 +76,7 @@ export interface Snapshot {
   catalog?: CatalogItem[]
   purchases?: Purchase[]
   transactions?: Transaction[]
+  dayPlans?: DayPlan[]
   settings?: Settings
 }
 
