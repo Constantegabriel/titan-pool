@@ -188,3 +188,16 @@ canvas[data-ready] + * { display: none; }
   .tp-drop, .tp-beams { animation: none; }
   .tp-drop { display: none; }
 }
+
+/* Menu do celular */
+@keyframes tp-menu-in { from { opacity: 0; clip-path: circle(0% at calc(100% - 36px) 32px) } to { opacity: 1; clip-path: circle(150% at calc(100% - 36px) 32px) } }
+@keyframes tp-menu-item-in { from { opacity: 0; transform: translateX(24px) } to { opacity: 1; transform: none } }
+.tp-menu { animation: tp-menu-in 0.5s cubic-bezier(0.3, 0.8, 0.2, 1) both; }
+.tp-menu-item { animation: tp-menu-item-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Rota animada (o resto é animação nativa do SVG) */
+@keyframes tp-shimmer-pool { 0%, 100% { opacity: 1 } 50% { opacity: 0.75 } }
+.tp-pool-shimmer { animation: tp-shimmer-pool 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .tp-menu, .tp-menu-item, .tp-pool-shimmer { animation: none; }
+}

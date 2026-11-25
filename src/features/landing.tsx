@@ -1,8 +1,8 @@
 import {
   ArrowRight, BellRing, Building2, CalendarDays, Camera, Car, Check, CheckCircle2, ChevronDown, Clock, Download, Droplets, FileText, FlaskConical,
-  Laptop, MapPin, Menu, MessageCircle, Navigation, Send, ShieldCheck, ShoppingBag, Smartphone, Sparkles, UserRound, Users, Wallet, X,
+  Laptop, MapPin, MessageCircle, Navigation, Send, ShieldCheck, ShoppingBag, Smartphone, Sparkles, UserRound, Users, Wallet, X,
 } from 'lucide-react'
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SUPABASE_KEY, SUPABASE_URL } from '@/config'
 import { IDEAL_RANGES, type ReadingKey, classify, suggestCorrections } from '@/domain/chemistry'
 import { whatsappLink } from '@/domain/format'
@@ -10,6 +10,11 @@ import { haversineKm, optimizeOrder, ROAD_FACTOR } from '@/domain/route'
 import { cn } from '@/lib/cn'
 import { prefersReducedMotion, useReveal } from '@/lib/use-reveal'
 import armetecLogo from '@/assets/armetec.webp'
+import screenAgenda from '@/assets/screens/agenda.webp'
+import screenClientes from '@/assets/screens/clientes.webp'
+import screenCompras from '@/assets/screens/compras.webp'
+import screenFinanceiro from '@/assets/screens/financeiro.webp'
+import screenVisita from '@/assets/screens/visita.webp'
 import { Bubbles, WaterBackground, Waves } from '@/components/water'
 
 const YEAR = new Date().getFullYear()
@@ -124,6 +129,7 @@ function useTicker(steps: number, ms: number) {
 export function LandingPage() {
   const [settings, setSettings] = useState<Settings>({ trial_days: 14, allow_self_signup: true, support_whatsapp: '' })
   const [menu, setMenu] = useState(false)
+  const closeMenu = useCallback(() => setMenu(false), [])
   const solid = useScrolled()
   const phoneRef = useParallaxRef<HTMLDivElement>(-0.1)
   useReveal()
@@ -142,7 +148,7 @@ export function LandingPage() {
   const signup = settings.allow_self_signup ? '/cadastro' : null
   const contact = settings.support_whatsapp ? whatsappLink(settings.support_whatsapp, 'Olá! Quero conhecer o Titan Pool.') : null
   const cta = { signup, contact, trialDays: settings.trial_days }
-  const links = [['#recursos', 'Recursos'], ['#rota', 'Rota'], ['#agua', 'Análise da água'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas']]
+  const links = [['#app', 'Veja o app'], ['#recursos', 'Recursos'], ['#rota', 'Rota'], ['#agua', 'Análise da água'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas']]
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-white text-slate-900">
@@ -159,16 +165,12 @@ export function LandingPage() {
             <a href="/entrar" className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Entrar</a>
             {signup && <a href={signup} className="hidden rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 sm:inline-flex">Testar grátis</a>}
             <button type="button" className="flex size-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-              {menu ? <X className="size-5" /> : <Menu className="size-5" />}
+              <Burger open={menu} />
             </button>
           </div>
         </div>
-        {menu && (
-          <nav className="tp-fade border-t border-slate-100 bg-white px-4 py-3 text-slate-700 lg:hidden">
-            {links.map(([h, l]) => <a key={h} href={h} onClick={() => setMenu(false)} className="block rounded-xl px-3 py-2.5 font-medium hover:bg-slate-50">{l}</a>)}
-          </nav>
-        )}
       </header>
+      <MobileMenu open={menu} onClose={closeMenu} signup={signup} trialDays={settings.trial_days} />
 
       {/* Abertura: fundo branco com detalhes de água bem leves */}
       <section data-hero className="relative isolate overflow-hidden bg-white pt-16 text-slate-900 lg:flex lg:h-svh lg:min-h-[600px] lg:flex-col">
@@ -209,6 +211,7 @@ export function LandingPage() {
         <Waves />
       </section>
 
+      <Showcase />
       <Pains />
       <Mission />
       <Marquee />
@@ -409,18 +412,7 @@ function Mission() {
             <span key={i} style={{ transitionDelay: `${i * 45}ms` }} className={cn('inline-block', highlight.has(w) && 'text-brand-600')}>{w}&nbsp;</span>
           ))}
         </p>
-        <div className="tp-reveal mt-12 grid gap-6 sm:grid-cols-3">
-          {[
-            ['Feito para o dia a dia', 'Telas pensadas para usar com uma mão, no sol, entre uma piscina e outra.'],
-            ['Simples de começar', 'Cadastre pelo CEP, marque os dias de visita e a agenda está pronta.'],
-            ['Cresce com você', 'Do piscineiro autônomo à empresa com vários clientes, os dados ficam organizados.'],
-          ].map(([t, d]) => (
-            <div key={t} className="border-l-2 border-brand-200 pl-4">
-              <p className="font-bold">{t}</p>
-              <p className="mt-1 text-[15px] text-slate-600">{d}</p>
-            </div>
-          ))}
-        </div>
+        <RouteStory />
       </div>
     </section>
   )
@@ -429,9 +421,9 @@ function Mission() {
 /** Para quem é. */
 function Audience() {
   const items: Array<[ReactNode, string, string]> = [
-    [<UserRound key="a" className="size-6" />, 'Piscineiro autônomo', 'Organize a semana sozinho, chegue no horário e cobre sem constrangimento.'],
-    [<Users key="b" className="size-6" />, 'Pequenas equipes', 'Cada piscina com histórico, fotos e relatórios: qualquer pessoa sabe o que foi feito.'],
-    [<Building2 key="c" className="size-6" />, 'Condomínios e clubes', 'Visitas com horário combinado, relatórios em PDF e registro de tudo que foi aplicado.'],
+    [<UserRound key="a" className="size-6" />, 'Piscineiro autônomo', 'Semana organizada e cobrança sem constrangimento.'],
+    [<Users key="b" className="size-6" />, 'Pequenas equipes', 'Histórico e fotos de cada piscina.'],
+    [<Building2 key="c" className="size-6" />, 'Condomínios e clubes', 'Horário combinado e relatório em PDF.'],
   ]
   return (
     <section className="mx-auto max-w-6xl px-4 py-24">
@@ -658,9 +650,9 @@ function Gauge() {
 /** Três passos com uma linha que se desenha ligando um ao outro. */
 function Steps() {
   const steps = [
-    ['Cadastre seus clientes', 'CEP ou começo da rua e pronto: endereço, mapa, piscina e dias de visita.'],
-    ['Siga a rota do dia', 'De manhã as visitas já estão em ordem, com horário previsto e navegação.'],
-    ['Registre e receba', 'Relatório pelo WhatsApp, mensalidades em dia e o financeiro do mês pronto.'],
+    ['Cadastre seus clientes', 'Pelo CEP, em segundos.'],
+    ['Siga a rota do dia', 'Visitas em ordem, com horário.'],
+    ['Registre e receba', 'Relatório no WhatsApp e mensalidade em dia.'],
   ]
   return (
     <section id="como-funciona" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24">
@@ -889,6 +881,248 @@ function WaterLab() {
           ))}
         </div>
         <p className="mt-4 text-xs text-brand-200">Estimativas para cloro granulado 65% e bicarbonato de sódio. Confira sempre o rótulo do produto.</p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Menu do celular                                                      */
+/* ------------------------------------------------------------------ */
+
+const MENU_ITEMS: Array<[string, string, ReactNode]> = [
+  ['#app', 'Veja o app', <Smartphone key="a" className="size-5" />],
+  ['#recursos', 'Recursos', <Sparkles key="b" className="size-5" />],
+  ['#rota', 'Rota inteligente', <Navigation key="c" className="size-5" />],
+  ['#agua', 'Análise da água', <FlaskConical key="d" className="size-5" />],
+  ['#planos', 'Planos', <Wallet key="e" className="size-5" />],
+  ['#duvidas', 'Dúvidas', <MessageCircle key="f" className="size-5" />],
+]
+
+/** Menu em tela cheia: azul de piscina, itens grandes entrando em cascata e as ações embaixo. */
+function MobileMenu({ open, onClose, signup, trialDays }: { open: boolean; onClose: () => void; signup: string | null; trialDays: number }) {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
+  if (!open) return null
+  return (
+    <div className="tp-menu fixed inset-0 z-50 flex flex-col overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+      <div className="tp-blob pointer-events-none absolute -top-24 -right-24 size-80 rounded-full bg-sky-400/30 blur-3xl" aria-hidden />
+      <Bubbles count={8} />
+      <div className="relative flex h-16 items-center justify-between px-4">
+        <span className="inline-flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-white/20"><Droplets className="size-5" aria-hidden /></span>
+          <span className="text-xl font-bold tracking-tight">Titan Pool</span>
+        </span>
+        <button type="button" onClick={onClose} className="flex size-10 items-center justify-center rounded-xl bg-white/15 hover:bg-white/25" aria-label="Fechar menu"><X className="size-5" /></button>
+      </div>
+      <nav className="relative mt-4 flex-1 overflow-y-auto px-4">
+        <ul className="space-y-1.5">
+          {MENU_ITEMS.map(([href, label, icon], i) => (
+            <li key={href} className="tp-menu-item" style={{ animationDelay: `${80 + i * 55}ms` }}>
+              <a href={href} onClick={onClose} className="group flex items-center gap-4 rounded-2xl px-3 py-3.5 text-2xl font-bold tracking-tight hover:bg-white/10">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-white/15 transition-transform group-active:scale-90">{icon}</span>
+                {label}
+                <ArrowRight className="ml-auto size-5 opacity-50" aria-hidden />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="tp-menu-item relative space-y-2.5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]" style={{ animationDelay: '420ms' }}>
+        {signup && (
+          <a href={signup} className="flex h-13 items-center justify-center gap-2 rounded-xl bg-white text-base font-semibold text-brand-700">
+            Testar grátis por {trialDays} dias <ArrowRight className="size-5" aria-hidden />
+          </a>
+        )}
+        <a href="/entrar" className="flex h-13 items-center justify-center rounded-xl bg-white/15 text-base font-semibold ring-1 ring-white/30">Já tenho conta · Entrar</a>
+      </div>
+    </div>
+  )
+}
+
+/** Hambúrguer que vira X. */
+function Burger({ open }: { open: boolean }) {
+  return (
+    <span className="relative block h-4 w-5" aria-hidden>
+      <span className={cn('absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300', open ? 'top-[7px] rotate-45' : 'top-0')} />
+      <span className={cn('absolute top-[7px] left-0 h-0.5 rounded-full bg-current transition-all duration-300', open ? 'w-0 opacity-0' : 'w-3.5')} />
+      <span className={cn('absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-300', open ? 'top-[7px] -rotate-45' : 'top-[14px]')} />
+    </span>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Vitrine: telas reais do app                                          */
+/* ------------------------------------------------------------------ */
+
+const SCREENS: Array<{ src: string; title: string; caption: string }> = [
+  { src: screenAgenda, title: 'Agenda do dia', caption: 'Ordem de chegada com horário' },
+  { src: screenVisita, title: 'Relatório da visita', caption: 'Água, serviços e produtos' },
+  { src: screenCompras, title: 'Pedido de compra', caption: 'Pronto para o fornecedor' },
+  { src: screenFinanceiro, title: 'Financeiro', caption: 'Lucro do mês na hora' },
+  { src: screenClientes, title: 'Clientes', caption: 'Tudo de cada piscina' },
+]
+
+/** Carrossel em leque com as telas do app; gira sozinho, aceita toque, arrastar e clique. */
+function Showcase() {
+  const [active, setActive] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const startX = useRef<number | null>(null)
+  const n = SCREENS.length
+  const go = (i: number) => setActive(((i % n) + n) % n)
+
+  useEffect(() => {
+    if (prefersReducedMotion() || paused || !box.current) return
+    let visible = false
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting }, { threshold: 0.3 })
+    io.observe(box.current)
+    const id = setInterval(() => { if (visible) setActive((a) => (a + 1) % n) }, 3200)
+    return () => { clearInterval(id); io.disconnect() }
+  }, [paused, n])
+
+  return (
+    <section id="app" className="relative isolate scroll-mt-16 overflow-hidden bg-gradient-to-b from-white via-brand-50/60 to-white py-20 md:py-28">
+      <div className="tp-reveal mx-auto max-w-2xl px-4 text-center">
+        <p className="text-sm font-semibold tracking-wider text-brand-600 uppercase">Veja o app</p>
+        <h2 className="mt-2 text-3xl font-extrabold tracking-tight md:text-5xl">Simples assim, no seu celular.</h2>
+      </div>
+      <div
+        ref={box}
+        className="tp-reveal relative mx-auto mt-12 h-[480px] max-w-5xl touch-pan-y select-none md:h-[600px]"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onPointerDown={(e) => { startX.current = e.clientX }}
+        onPointerUp={(e) => {
+          if (startX.current === null) return
+          const dx = e.clientX - startX.current
+          if (Math.abs(dx) > 40) go(active + (dx < 0 ? 1 : -1))
+          startX.current = null
+        }}
+        aria-roledescription="carrossel"
+        aria-label="Telas do app"
+      >
+        {SCREENS.map((s, i) => {
+          let o = i - active
+          if (o > n / 2) o -= n
+          if (o < -n / 2) o += n
+          const abs = Math.abs(o)
+          return (
+            <button
+              key={s.title}
+              type="button"
+              onClick={() => go(i)}
+              aria-label={`${s.title}: ${s.caption}`}
+              aria-current={o === 0}
+              className="absolute top-0 left-1/2 w-[230px] transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] md:w-[290px]"
+              style={{
+                transform: `translateX(calc(-50% + ${o * 62}%)) scale(${1 - abs * 0.14}) rotate(${o * 3}deg)`,
+                zIndex: 10 - abs,
+                opacity: abs > 2 ? 0 : 1 - abs * 0.22,
+                filter: abs ? 'saturate(0.85)' : undefined,
+              }}
+              tabIndex={abs > 1 ? -1 : 0}
+            >
+              <span className="block rounded-[2.4rem] border-[9px] border-slate-900 bg-slate-900 shadow-[0_30px_60px_-20px_rgb(15_36_86/0.45)]">
+                <img src={s.src} alt="" width={640} height={1036} loading="lazy" decoding="async" className="block w-full rounded-[1.8rem]" draggable={false} />
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="relative mt-6 flex flex-col items-center gap-4 px-4">
+        <p key={active} className="tp-fade text-center">
+          <span className="block text-lg font-bold">{SCREENS[active].title}</span>
+          <span className="text-slate-500">{SCREENS[active].caption}</span>
+        </p>
+        <div className="flex gap-2" role="tablist" aria-label="Escolher tela">
+          {SCREENS.map((s, i) => (
+            <button key={s.title} type="button" role="tab" aria-selected={i === active} aria-label={s.title} onClick={() => go(i)}
+              className={cn('h-2 rounded-full transition-all duration-500', i === active ? 'w-8 bg-brand-600' : 'w-2 bg-slate-300 hover:bg-slate-400')} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Animação: a van percorre o dia                                       */
+/* ------------------------------------------------------------------ */
+
+const ROAD: Array<[number, number]> = [[40, 210], [170, 210], [250, 110], [400, 110], [480, 210], [620, 210], [700, 110], [800, 110]]
+const HOUSES: Array<{ at: number; x: number; y: number }> = [
+  { at: 1, x: 150, y: 245 }, { at: 3, x: 380, y: 25 }, { at: 5, x: 600, y: 245 }, { at: 7, x: 780, y: 25 },
+]
+const ROAD_PATH = ROAD.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ')
+const ROAD_LEN = ROAD.slice(1).reduce((sum, [x, y], i) => sum + Math.hypot(x - ROAD[i][0], y - ROAD[i][1]), 0)
+/** Fração do caminho em que a van chega a cada casa. */
+const fractionAt = (index: number) =>
+  ROAD.slice(1, index + 1).reduce((sum, [x, y], i) => sum + Math.hypot(x - ROAD[i][0], y - ROAD[i][1]), 0) / ROAD_LEN
+
+/**
+ * A rota do dia contada sem texto: a van passa e cada piscina fica pronta.
+ * Animação nativa do SVG (um só relógio para van, estrada e casas); parada com "menos movimento".
+ */
+function RouteStory() {
+  const [still] = useState(() => prefersReducedMotion())
+  const dur = '10s'
+  const end = 0.85 // a van chega ao fim aos 85% do ciclo e espera um pouco
+  return (
+    <div className="tp-reveal relative mx-auto mt-14 max-w-4xl overflow-hidden rounded-[2rem] bg-white p-4 shadow-card ring-1 ring-slate-100 md:p-6" aria-label="Animação: a van percorre a rota e conclui as visitas" role="img">
+      <svg viewBox="0 0 840 300" className="w-full">
+        <rect x="0" y="0" width="840" height="300" rx="24" fill="#f4f7fc" />
+        <path d={ROAD_PATH} stroke="#dbe5f3" strokeWidth="26" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={ROAD_PATH} stroke="#fff" strokeWidth="3" strokeDasharray="10 14" fill="none" strokeLinejoin="round" />
+        <path d={ROAD_PATH} stroke="#3478f6" strokeWidth="5" fill="none" strokeLinejoin="round" strokeLinecap="round" pathLength={100} strokeDasharray="100" strokeDashoffset={still ? 0 : 100}>
+          {!still && <animate attributeName="stroke-dashoffset" values="100;0;0" keyTimes={`0;${end};1`} dur={dur} repeatCount="indefinite" />}
+        </path>
+        {HOUSES.map((h, i) => {
+          const f = (fractionAt(h.at) * end).toFixed(3)
+          return (
+            <g key={i} transform={`translate(${h.x - 50} ${h.y - 10})`}>
+              <rect x="0" y="18" width="44" height="32" rx="4" fill="#fff" stroke="#cbd5e1" />
+              <path d="M-4 20 L22 0 L48 20 Z" fill="#94a3b8" />
+              <rect x="52" y="22" width="44" height="26" rx="8" fill="#bcd6ff" />
+              <rect x="56" y="26" width="36" height="18" rx="6" fill="#5996ff" className="tp-pool-shimmer" />
+              <g transform="translate(74 -8)">
+                <circle r="12" fill={still ? '#10b981' : '#1f62e8'}>
+                  {!still && <animate attributeName="fill" values="#1f62e8;#10b981" keyTimes={`0;${f}`} calcMode="discrete" dur={dur} repeatCount="indefinite" />}
+                </circle>
+                <text y="4.5" textAnchor="middle" fontSize="12" fontWeight="800" fill="#fff" opacity={still ? 0 : 1}>
+                  {i + 1}
+                  {!still && <animate attributeName="opacity" values="1;0" keyTimes={`0;${f}`} calcMode="discrete" dur={dur} repeatCount="indefinite" />}
+                </text>
+                <path d="M-5 0 L-1.5 4 L5 -4" stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={still ? 1 : 0}>
+                  {!still && <animate attributeName="opacity" values="0;1" keyTimes={`0;${f}`} calcMode="discrete" dur={dur} repeatCount="indefinite" />}
+                </path>
+              </g>
+            </g>
+          )
+        })}
+        <g transform="translate(14 230)"><circle r="14" cx="26" cy="-20" fill="#0f172a" /><text x="26" y="-15" textAnchor="middle" fontSize="13" fill="#fff">⌂</text></g>
+        {/* a van */}
+        <g transform={still ? `translate(${ROAD[ROAD.length - 1].join(' ')})` : undefined}>
+          {!still && <animateMotion path={ROAD_PATH} keyPoints="0;1;1" keyTimes={`0;${end};1`} calcMode="linear" dur={dur} repeatCount="indefinite" />}
+          <g transform="translate(-20 -13)">
+            <rect width="40" height="22" rx="6" fill="#1f62e8" />
+            <rect x="26" y="4" width="10" height="8" rx="2" fill="#bcd6ff" />
+            <circle cx="10" cy="23" r="4.5" fill="#0f172a" /><circle cx="30" cy="23" r="4.5" fill="#0f172a" />
+          </g>
+        </g>
+      </svg>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
+        <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-brand-600" />A caminho</span>
+        <span className="flex items-center gap-2"><span className="size-3 rounded-full bg-emerald-500" />Visita feita · relatório enviado</span>
       </div>
     </div>
   )
