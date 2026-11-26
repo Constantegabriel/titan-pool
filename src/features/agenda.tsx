@@ -11,7 +11,7 @@ import { newId, nowIso } from '@/data'
 import { WEEKDAY_SHORT, addDays, parseIsoDate, today, weekdayOf } from '@/domain/dates'
 import { formatLiters } from '@/domain/format'
 import {
-  type StopInput, type StopPlan, buildTimeline, formatClock, mergeByTime, minutesOfDay, navigationUrl, optimizeOrder, parseClock, roadKm, travelMinutes,
+  type StopInput, type StopPlan, buildTimeline, formatClock, mergeByTime, minutesOfDay, navigationUrl, optimizeOrder, parseClock, type LegFn,
 } from '@/domain/route'
 import { applyOrder, emptyDayPlan, moveItem } from '@/domain/day-plan'
 import { type AgendaItem, agendaProgress, arrangeByProgress, buildAgenda, isPending, routeUrl } from '@/domain/schedule'
@@ -26,6 +26,7 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities'
 import { cn } from '@/lib/cn'
 import { formatDuration, formatKm } from '@/lib/geo'
 import { useMyLocation } from '@/lib/use-my-location'
+import { useRoadLegs, useRoadPath } from '@/lib/road-routing'
 
 const RouteMap = lazy(() => import('@/components/route-map'))
 
@@ -87,7 +88,7 @@ const startPoint = (plan: DayPlan | null, current: GeoPoint | null) => (plan?.st
  * Calcula o dia: visitas já feitas na ordem em que aconteceram, depois as pendentes —
  * na ordem salva do dia (se houver) ou na ordem padrão, com as de horário marcado no ponto certo.
  */
-function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null, plan: DayPlan | null, forceOrder?: string[]): DayResult {
+function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null, plan: DayPlan | null, leg: LegFn, forceOrder?: string[]): DayResult {
   const dayStart = parseClock(plan?.startTime ?? settings.dayStart)
   const here = startPoint(plan, current)
   const timeline = (list: AgendaItem[]) =>
@@ -97,6 +98,7 @@ function planDay(items: AgendaItem[], settings: Settings, date: string, now: Dat
       speedKmh: settings.avgSpeedKmh,
       now: date === today() ? minutesOfDay(now) : null,
       current: here,
+      leg,
       stops: list.map((i) => toStopInput(i, settings, date)),
     })
   const arranged = arrangeByProgress(items)
@@ -126,8 +128,7 @@ function planDay(items: AgendaItem[], settings: Settings, date: string, now: Dat
   let back: DayResult['back'] = null
   if (plan?.returnToBase && settings.base && last) {
     const lastPoint = [...active].reverse().map((st) => pointOf(st.item)).find(Boolean) ?? null
-    const km = roadKm(lastPoint, settings.base)
-    const minutes = travelMinutes(km, settings.avgSpeedKmh)
+    const { km, minutes } = leg(lastPoint, settings.base)
     back = { km, minutes, arrival: last.plan.departure + minutes }
   }
   const km = active.reduce((sum, st) => sum + (st.plan.km ?? 0), 0) + (back?.km ?? 0)
@@ -140,18 +141,19 @@ function planDay(items: AgendaItem[], settings: Settings, date: string, now: Dat
  * dia começa ou da última visita feita), as com horário marcado encaixadas pelo horário e as sem
  * localização no fim.
  */
-function bestOrder(result: DayResult, settings: Settings, plan: DayPlan | null, current: GeoPoint | null): string[] {
+function bestOrder(result: DayResult, settings: Settings, plan: DayPlan | null, current: GeoPoint | null, leg: LegFn): string[] {
   const pending = result.stops.filter((st) => isPending(st.item))
   const lastDone = [...result.stops].reverse().find((st) => st.item.visit && !isPending(st.item) && st.item.visit.status !== 'skipped' && pointOf(st.item))
   const from = lastDone ? pointOf(lastDone.item) : (startPoint(plan, current) ?? settings.base)
   const untimed = pending.filter((st) => !st.item.time && pointOf(st.item))
-  const idx = optimizeOrder(from, untimed.map((st) => pointOf(st.item)!))
+  // Ordena pelo tempo de carro pelas ruas (com rotas reais) ou pela estimativa.
+  const idx = optimizeOrder(from, untimed.map((st) => pointOf(st.item)!), (a, b) => leg(a, b).minutes)
   const optimized = idx.map((i) => untimed[i])
   // Estima as chegadas da ordem otimizada para encaixar os horários marcados.
   let clock = parseClock(plan?.startTime ?? settings.dayStart)
   let pos = from
   const arrivals = optimized.map((st) => {
-    clock += travelMinutes(roadKm(pos, pointOf(st.item)), settings.avgSpeedKmh)
+    clock += leg(pos, pointOf(st.item)).minutes
     pos = pointOf(st.item)
     const arrival = clock
     clock += st.item.pool.serviceMinutes ?? settings.defaultServiceMinutes
@@ -239,8 +241,15 @@ export function AgendaPage() {
   const [focusMe, setFocusMe] = useState(0)
   const plan = dayPlan.data ?? null
   // A previsão usa a posição real só no dia de hoje.
-  const current = isToday ? me.point : null
-  const result = ready ? planDay(agenda, settings.data!, date, now, current, plan) : null
+  // Arredonda o GPS (~100 m) para não recalcular a rota a cada passo.
+  const current = useMemo(() => (isToday && me.point ? { lat: Math.round(me.point.lat * 1000) / 1000, lng: Math.round(me.point.lng * 1000) / 1000 } : null), [isToday, me.point])
+  const roadPoints = useMemo(
+    () => [settings.data?.base, current, ...agenda.map(pointOf)].filter((p): p is GeoPoint => Boolean(p)),
+    [settings.data?.base, current, agenda],
+  )
+  const road = useRoadLegs(roadPoints, settings.data?.avgSpeedKmh ?? 30)
+  const leg = road.leg
+  const result = ready ? planDay(agenda, settings.data!, date, now, current, plan, leg) : null
   const stops = result?.stops ?? []
   const progress = agendaProgress(agenda)
   const pendingStops = stops.filter((st) => isPending(st.item))
@@ -260,6 +269,13 @@ export function AgendaPage() {
       }),
     [mapSignature], // oxlint-disable-line react-hooks/exhaustive-deps
   )
+  // Caminho pelas ruas na ordem do dia (com a volta para casa, se marcada).
+  const pathPoints = useMemo(() => {
+    const base = settings.data?.base
+    const list = stops.filter((st) => st.item.visit?.status !== 'skipped').map((st) => pointOf(st.item)).filter((p): p is GeoPoint => Boolean(p))
+    return [...(base ? [base] : []), ...list, ...(base && plan?.returnToBase && list.length ? [base] : [])]
+  }, [mapSignature, settings.data?.base, plan?.returnToBase]) // oxlint-disable-line react-hooks/exhaustive-deps
+  const roadPath = useRoadPath(pathPoints)
   const onSelectStop = useCallback((key: string) => {
     setHighlight(key)
     document.getElementById(`stop-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -326,7 +342,7 @@ export function AgendaPage() {
                   {me.status === 'denied' ? 'Localização bloqueada' : me.status === 'on' ? 'Você' : 'Minha localização'}
                 </button>
                 <Suspense fallback={<div className="h-full animate-pulse bg-slate-100" />}>
-                  <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} me={me.point} accuracy={me.accuracy} focusMe={focusMe} loop={Boolean(plan?.returnToBase)} />
+                  <RouteMap base={s!.base} stops={mapStops} onSelect={onSelectStop} me={me.point} accuracy={me.accuracy} focusMe={focusMe} loop={Boolean(plan?.returnToBase)} path={roadPath} />
                 </Suspense>
               </div>
               <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100">
@@ -398,7 +414,7 @@ export function AgendaPage() {
               </ExternalButton>
             )}
             <p className="mt-3 text-center text-xs text-slate-400">
-              Previsão com {s!.avgSpeedKmh} km/h de média e {s!.defaultServiceMinutes} min por piscina · <Link to="/mais/ajustes" className="underline">ajustar</Link>
+              {road.status === 'road' ? 'Tempos e distâncias pelas ruas e estradas' : road.status === 'loading' ? 'Calculando rotas pelas ruas…' : `Sem conexão com o mapa de ruas: estimativa a ${s!.avgSpeedKmh} km/h`} · {s!.defaultServiceMinutes} min por piscina · <Link to="/mais/ajustes" className="underline">ajustar</Link>
             </p>
           </div>
         </div>
@@ -412,8 +428,8 @@ export function AgendaPage() {
           settings={s!}
           hasGps={Boolean(current)}
           current={result}
-          compute={(patch, order) => planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, order)}
-          best={(patch) => bestOrder(planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }), s!, { ...(plan ?? emptyDayPlan(date)), ...patch }, current)}
+          compute={(patch, order) => planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg, order)}
+          best={(patch) => bestOrder(planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg), s!, { ...(plan ?? emptyDayPlan(date)), ...patch }, current, leg)}
           onSave={(patch) => updatePlan(patch)}
           onClose={() => setPlanner(false)}
         />

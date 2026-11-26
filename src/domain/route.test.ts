@@ -160,3 +160,24 @@ describe('plano do dia', () => {
     expect(moveItem(['a', 'b', 'c', 'd'], 3, 1)).toEqual(['a', 'd', 'b', 'c'])
   })
 })
+
+describe('rotas pelas ruas', () => {
+  it('usa o custo informado para ordenar (estrada, não linha reta)', () => {
+    const start = { lat: 0, lng: 0 }
+    const near = { lat: 0, lng: 0.01 }
+    const far = { lat: 0, lng: 0.05 }
+    // Em linha reta "near" vem primeiro; pela estrada ele é o mais longe.
+    const cost = (a: { lng: number }, b: { lng: number }) => (b === near || a === near ? 100 : Math.abs(a.lng - b.lng))
+    expect(optimizeOrder(start, [near, far])).toEqual([0, 1])
+    expect(optimizeOrder(start, [near, far], cost)).toEqual([1, 0])
+  })
+
+  it('a linha do tempo usa os trechos de carro', () => {
+    const plans = buildTimeline({
+      base: { lat: 0, lng: 0 }, dayStart: 480, speedKmh: 30, now: null,
+      stops: [{ point: { lat: 0, lng: 0.1 }, serviceMinutes: 30, state: 'pending', startedAt: null, finishedAt: null }],
+      leg: () => ({ km: 48, minutes: 50 }),
+    })
+    expect(plans[0]).toMatchObject({ km: 48, travelMinutes: 50, arrival: 530 })
+  })
+})

@@ -18,7 +18,7 @@ export interface MapStop {
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION = '© OpenStreetMap'
 
-export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe, loop }: {
+export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe, loop, path }: {
   base: GeoPoint | null; stops: MapStop[]; onSelect?: (key: string) => void
   /** Posição atual do aparelho. */
   me?: GeoPoint | null
@@ -27,6 +27,8 @@ export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe,
   focusMe?: number
   /** Desenha a volta para o ponto de partida. */
   loop?: boolean
+  /** Caminho pelas ruas ([lat, lng]); sem ele liga os pontos em linha reta. */
+  path?: Array<[number, number]> | null
 }) {
   const el = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
@@ -61,7 +63,11 @@ export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe,
     }
     const active = stops.filter((s) => s.state !== 'skipped')
     for (const s of active) points.push([s.point.lat, s.point.lng])
-    if (points.length > 1) {
+    if (path && path.length > 1) {
+      // Contorno branco por baixo para a rota aparecer sobre o mapa.
+      L.polyline(path, { color: '#ffffff', weight: 8, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(group)
+      L.polyline(path, { color: '#1f62e8', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(group)
+    } else if (points.length > 1) {
       L.polyline(points, { color: '#1f62e8', weight: 4, opacity: 0.75, dashArray: '2 8', lineCap: 'round' }).addTo(group)
       if (loop && base) {
         L.polyline([points[points.length - 1], [base.lat, base.lng]], { color: '#64748b', weight: 3, opacity: 0.6, dashArray: '2 8', lineCap: 'round' }).addTo(group)
@@ -77,11 +83,11 @@ export default function RouteMap({ base, stops, onSelect, me, accuracy, focusMe,
         .on('click', () => onSelect?.(s.key))
         .addTo(group)
     }
-    const all: L.LatLngExpression[] = [...points, ...stops.filter((s) => s.state === 'skipped').map((s) => [s.point.lat, s.point.lng] as L.LatLngTuple)]
+    const all: L.LatLngExpression[] = [...points, ...(path ?? []), ...stops.filter((s) => s.state === 'skipped').map((s) => [s.point.lat, s.point.lng] as L.LatLngTuple)]
     if (all.length === 1) m.setView(all[0], 14)
     else if (all.length > 1) m.fitBounds(L.latLngBounds(all), { padding: [36, 36], maxZoom: 15 })
     else m.setView([-15.78, -47.93], 4)
-  }, [base, stops, onSelect, loop])
+  }, [base, stops, onSelect, loop, path])
 
   // "Você está aqui": ponto azul pulsando e o círculo de precisão; não mexe no enquadramento.
   useEffect(() => {

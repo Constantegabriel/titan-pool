@@ -25,11 +25,24 @@ export function travelMinutes(km: number | null, speedKmh: number): number {
   return Math.max(3, Math.round((km / Math.max(5, speedKmh)) * 60) + 3)
 }
 
-function pathLength(start: GeoPoint | null, points: GeoPoint[], order: number[]): number {
+/** Um trecho de carro: distância (null quando falta localização) e tempo em minutos. */
+export interface Leg { km: number | null; minutes: number }
+export type LegFn = (a: GeoPoint | null, b: GeoPoint | null) => Leg
+
+/** Estimativa sem mapa de ruas: linha reta × fator urbano na velocidade média. */
+export const estimatedLeg = (speedKmh: number): LegFn => (a, b) => {
+  const km = roadKm(a, b)
+  return { km, minutes: travelMinutes(km, speedKmh) }
+}
+
+/** Custo de ir de um ponto a outro, usado para escolher a ordem (km, minutos…). */
+export type CostFn = (a: GeoPoint, b: GeoPoint) => number
+
+function pathLength(start: GeoPoint | null, points: GeoPoint[], order: number[], cost: CostFn): number {
   let total = 0
   let prev = start
   for (const i of order) {
-    if (prev) total += haversineKm(prev, points[i])
+    if (prev) total += cost(prev, points[i])
     prev = points[i]
   }
   return total
@@ -39,7 +52,7 @@ function pathLength(start: GeoPoint | null, points: GeoPoint[], order: number[])
  * Melhor ordem de visita (caminho aberto, a partir de `start`): vizinho mais próximo
  * seguido de 2-opt. Para as dezenas de paradas de um dia fica bem perto do ótimo e roda em milissegundos.
  */
-export function optimizeOrder(start: GeoPoint | null, points: GeoPoint[]): number[] {
+export function optimizeOrder(start: GeoPoint | null, points: GeoPoint[], cost: CostFn = haversineKm): number[] {
   const n = points.length
   if (n <= 1) return points.map((_, i) => i)
 
@@ -57,7 +70,7 @@ export function optimizeOrder(start: GeoPoint | null, points: GeoPoint[]): numbe
     let best = -1
     let bestDist = Infinity
     for (const i of left) {
-      const d = haversineKm(current, points[i])
+      const d = cost(current, points[i])
       if (d < bestDist) {
         bestDist = d
         best = i
@@ -69,13 +82,13 @@ export function optimizeOrder(start: GeoPoint | null, points: GeoPoint[]): numbe
   }
 
   let improved = true
-  let length = pathLength(start, points, order)
+  let length = pathLength(start, points, order, cost)
   while (improved) {
     improved = false
     for (let i = 0; i < n - 1; i++) {
       for (let j = i + 1; j < n; j++) {
         const candidate = [...order.slice(0, i), ...order.slice(i, j + 1).reverse(), ...order.slice(j + 1)]
-        const candidateLength = pathLength(start, points, candidate)
+        const candidateLength = pathLength(start, points, candidate, cost)
         if (candidateLength + 1e-9 < length) {
           order.splice(0, n, ...candidate)
           length = candidateLength
@@ -133,13 +146,15 @@ export interface TimelineInput {
   /** Onde o piscineiro está agora (GPS). No dia corrente, a próxima ida sai daqui. */
   current?: GeoPoint | null
   stops: StopInput[]
+  /** Trechos de carro (rotas reais); sem isso usa a estimativa em linha reta. */
+  leg?: LegFn
 }
 
 /**
  * Horários de chegada e saída de cada parada. Paradas concluídas usam os horários reais;
  * as seguintes são reprojetadas a partir de agora, então a previsão se corrige ao longo do dia.
  */
-export function buildTimeline({ base, dayStart, speedKmh, now, stops, current }: TimelineInput): StopPlan[] {
+export function buildTimeline({ base, dayStart, speedKmh, now, stops, current, leg = estimatedLeg(speedKmh) }: TimelineInput): StopPlan[] {
   const plans: StopPlan[] = []
   let clock = dayStart
   let position = base
@@ -151,8 +166,7 @@ export function buildTimeline({ base, dayStart, speedKmh, now, stops, current }:
       position = current!
       useCurrent = false
     }
-    const km = roadKm(position, stop.point)
-    const travel = travelMinutes(km, speedKmh)
+    const { km, minutes: travel } = leg(position, stop.point)
 
     if (stop.state === 'skipped') {
       plans.push({ km: null, travelMinutes: 0, arrival: clock, departure: clock, actual: true })
