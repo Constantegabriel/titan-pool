@@ -62,7 +62,7 @@ interface Stop {
   position: number | null
 }
 
-function toStopInput(item: AgendaItem, settings: Settings, date: string): StopInput {
+function toStopInput(item: AgendaItem, settings: Settings, date: string, ignoreTimes = false): StopInput {
   const v = item.visit
   return {
     point: pointOf(item),
@@ -70,7 +70,7 @@ function toStopInput(item: AgendaItem, settings: Settings, date: string): StopIn
     state: !v || v.status === 'scheduled' || v.status === 'canceled' ? 'pending' : v.status,
     startedAt: v ? clockOf(v.checkInAt, date) : null,
     finishedAt: v ? clockOf(v.completedAt, date) : null,
-    notBefore: item.time ? parseClock(item.time) : null,
+    notBefore: item.time && !ignoreTimes ? parseClock(item.time) : null,
   }
 }
 
@@ -88,7 +88,20 @@ const startPoint = (plan: DayPlan | null, current: GeoPoint | null) => (plan?.st
  * Calcula o dia: visitas já feitas na ordem em que aconteceram, depois as pendentes —
  * na ordem salva do dia (se houver) ou na ordem padrão, com as de horário marcado no ponto certo.
  */
-function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null, plan: DayPlan | null, leg: LegFn, forceOrder?: string[]): DayResult {
+interface PlanOptions {
+  /** Ordem forçada (ids das piscinas pendentes). */
+  order?: string[]
+  /** Simula o dia inteiro a partir do horário de saída, sem considerar a hora atual. */
+  simulate?: boolean
+}
+
+/**
+ * Com uma rota montada para o dia, a ordem escolhida manda: horários combinados não
+ * seguram a parada esperando (o card avisa quando a chegada fica longe do combinado).
+ */
+function planDay(items: AgendaItem[], settings: Settings, date: string, now: Date, current: GeoPoint | null, plan: DayPlan | null, leg: LegFn, opts: PlanOptions = {}): DayResult {
+  const forceOrder = opts.order
+  const ignoreTimes = Boolean(forceOrder?.length || plan?.order.length)
   const dayStart = parseClock(plan?.startTime ?? settings.dayStart)
   const here = startPoint(plan, current)
   const timeline = (list: AgendaItem[]) =>
@@ -96,10 +109,10 @@ function planDay(items: AgendaItem[], settings: Settings, date: string, now: Dat
       base: settings.base,
       dayStart,
       speedKmh: settings.avgSpeedKmh,
-      now: date === today() ? minutesOfDay(now) : null,
+      now: date === today() && !opts.simulate ? minutesOfDay(now) : null,
       current: here,
       leg,
-      stops: list.map((i) => toStopInput(i, settings, date)),
+      stops: list.map((i) => toStopInput(i, settings, date, ignoreTimes)),
     })
   const arranged = arrangeByProgress(items)
   const started = arranged.filter((i) => !isPending(i) && i.visit?.status !== 'skipped')
@@ -145,26 +158,11 @@ function bestOrder(result: DayResult, settings: Settings, plan: DayPlan | null, 
   const pending = result.stops.filter((st) => isPending(st.item))
   const lastDone = [...result.stops].reverse().find((st) => st.item.visit && !isPending(st.item) && st.item.visit.status !== 'skipped' && pointOf(st.item))
   const from = lastDone ? pointOf(lastDone.item) : (startPoint(plan, current) ?? settings.base)
-  const untimed = pending.filter((st) => !st.item.time && pointOf(st.item))
-  // Ordena pelo tempo de carro pelas ruas (com rotas reais) ou pela estimativa.
-  const idx = optimizeOrder(from, untimed.map((st) => pointOf(st.item)!), (a, b) => leg(a, b).minutes)
-  const optimized = idx.map((i) => untimed[i])
-  // Estima as chegadas da ordem otimizada para encaixar os horários marcados.
-  let clock = parseClock(plan?.startTime ?? settings.dayStart)
-  let pos = from
-  const arrivals = optimized.map((st) => {
-    clock += leg(pos, pointOf(st.item)).minutes
-    pos = pointOf(st.item)
-    const arrival = clock
-    clock += st.item.pool.serviceMinutes ?? settings.defaultServiceMinutes
-    return arrival
-  })
-  const merged = mergeByTime(
-    optimized.map((st, i) => ({ item: st.item, arrival: arrivals[i] })),
-    pending.filter((st) => st.item.time).map((st) => ({ item: st.item, time: parseClock(st.item.time!) })),
-  )
-  const noPoint = pending.filter((st) => !st.item.time && !pointOf(st.item)).map((st) => st.item)
-  return [...merged, ...noPoint].map((i) => i.pool.id)
+  // Só o caminho importa: menor tempo de carro pelas ruas, independente de horários combinados.
+  const located = pending.filter((st) => pointOf(st.item))
+  const idx = optimizeOrder(from, located.map((st) => pointOf(st.item)!), (a, b) => leg(a, b).minutes)
+  const noPoint = pending.filter((st) => !pointOf(st.item))
+  return [...idx.map((i) => located[i]), ...noPoint].map((st) => st.item.pool.id)
 }
 
 /** Ações sobre uma visita do dia: iniciar, pular, remarcar, desmarcar. */
@@ -428,8 +426,8 @@ export function AgendaPage() {
           settings={s!}
           hasGps={Boolean(current)}
           current={result}
-          compute={(patch, order) => planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg, order)}
-          best={(patch) => bestOrder(planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg), s!, { ...(plan ?? emptyDayPlan(date)), ...patch }, current, leg)}
+          compute={(patch, order) => planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg, { order, simulate: true })}
+          best={(patch) => bestOrder(planDay(agenda, s!, date, now, current, { ...(plan ?? emptyDayPlan(date)), ...patch }, leg, { simulate: true }), s!, { ...(plan ?? emptyDayPlan(date)), ...patch }, current, leg)}
           onSave={(patch) => updatePlan(patch)}
           onClose={() => setPlanner(false)}
         />
@@ -465,12 +463,13 @@ function RoutePlanner({ date, plan, settings, hasGps, current, compute, best, on
   // Horários combinados podem fazer a sugestão sair pior: aí a ordem atual continua sendo a melhor.
   const suggested = best(patch)
   const suggestedResult = compute(patch, suggested)
-  const better = suggestedResult.totals.km < nowResult.totals.km - 0.05
+  const better = suggestedResult.totals.driveMinutes < nowResult.totals.driveMinutes - 0.5 || suggestedResult.totals.km < nowResult.totals.km - 0.5
   const bestIds = better ? suggested : nowIds
   const bestResult = better ? suggestedResult : nowResult
   const savedKm = nowResult.totals.km - bestResult.totals.km
   const savedMin = nowResult.totals.driveMinutes - bestResult.totals.driveMinutes
   const sameOrder = !better
+  const timedCount = nowResult.stops.filter((st) => isPending(st.item) && st.item.time).length
   void current
   const label = parseIsoDate(date).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -498,12 +497,18 @@ function RoutePlanner({ date, plan, settings, hasGps, current, compute, best, on
           <PlanCard title="Ordem atual" result={nowResult} />
           <PlanCard title="Melhor rota" result={bestResult} highlight />
         </div>
-        {!sameOrder && savedKm > 0.05 ? (
+        {!sameOrder ? (
           <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            A melhor rota economiza {formatKm(savedKm)}{savedMin > 0 ? ` e ${formatDuration(savedMin)} no trânsito` : ''}.
+            A melhor rota economiza {[savedKm > 0.05 && formatKm(savedKm), savedMin >= 1 && `${formatDuration(savedMin)} dirigindo`].filter(Boolean).join(' e ')}.
           </p>
         ) : (
           <p className="rounded-2xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-800">Sua ordem atual já é a melhor rota.</p>
+        )}
+        {timedCount > 0 && (
+          <p className="flex items-start gap-2 text-xs text-slate-500">
+            <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            A sugestão considera só o caminho, sem prender as {timedCount} visita(s) com horário combinado. Se a chegada ficar longe do combinado, o card avisa para você remarcar com o cliente.
+          </p>
         )}
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -759,7 +764,9 @@ function StopCard({ stop, highlighted, onStart, onMenu, allowStart, busy, drag }
             <Link to={`/clientes/${item.client.id}`} className={cn('block truncate font-semibold', done || skipped ? 'text-slate-500' : 'text-slate-900')}>{item.client.name}</Link>
             <p className="truncate text-[13px] text-slate-500">{[item.client.neighborhood.split(',')[0], item.pool.name].filter(Boolean).join(' · ')}</p>
             <div className="mt-1.5 flex flex-wrap gap-1 empty:hidden">
-              {item.time && <Badge tone="info"><Clock className="size-3" aria-hidden />{item.time}</Badge>}
+              {item.time && (Math.abs(plan.arrival - parseClock(item.time)) > 20 && isPending(item)
+                ? <Badge tone="warning"><Clock className="size-3" aria-hidden />Combinado {item.time}</Badge>
+                : <Badge tone="info"><Clock className="size-3" aria-hidden />{item.time}</Badge>)}
               {item.extra && <Badge tone="warning">Avulsa</Badge>}
               {item.moved && <Badge tone="warning">Remarcada</Badge>}
               {inProgress && <Badge tone="info">Em andamento</Badge>}
