@@ -202,15 +202,15 @@ export function AddressField({ value, onChange, near, areaLabel = 'Bairro e cida
         <Input placeholder="Ex.: Cambuí, Campinas - SP" value={value.area} onChange={(e) => { typed.current = true; onChange({ area: e.target.value, point: null }) }} onBlur={autoLocate} />
       </Field>
 
-      <div className={cn('flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm', value.point ? 'bg-emerald-50 text-emerald-900' : 'bg-slate-50 text-slate-600')}>
+      <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3.5 py-3 text-sm', value.point ? 'bg-emerald-50 text-emerald-900' : 'bg-slate-50 text-slate-600')}>
         {locating ? <LoaderCircle className="size-5 shrink-0 animate-spin text-brand-500" aria-hidden />
           : value.point ? <Check className="size-5 shrink-0 text-emerald-600" aria-hidden />
           : <MapPinOff className="size-5 shrink-0 text-slate-400" aria-hidden />}
-        <span className="min-w-0 flex-1">
-          {locating ? 'Localizando no mapa…' : value.point ? 'Localização no mapa definida' : 'Sem localização no mapa: a rota usa estimativa'}
+        <span className="min-w-[8rem] flex-1">
+          {locating ? 'Localizando no mapa…' : value.point ? 'Localização no mapa definida' : 'Sem localização no mapa'}
           {gpsError && <span className="block text-xs text-rose-600">{gpsError}</span>}
         </span>
-        <Button variant="secondary" size="sm" onClick={useGps} disabled={locating !== null}><Crosshair className="size-4" aria-hidden /> Estou no local</Button>
+        <Button variant="secondary" size="sm" className="ml-auto" onClick={useGps} disabled={locating !== null}><Crosshair className="size-4" aria-hidden /> Estou no local</Button>
       </div>
     </div>
   )

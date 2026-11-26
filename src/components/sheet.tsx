@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { type ReactNode, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Painel de ações: sobe de baixo no celular e abre como gaveta lateral no notebook.
@@ -22,7 +23,8 @@ export function Sheet({ open, title, subtitle, onClose, children, wide }: {
     }
   }, [open, onClose])
   if (!open) return null
-  return (
+  // Portal no <body>: fica acima da barra de navegação e de qualquer animação da página.
+  return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-end justify-center md:items-stretch md:justify-end">
       <button type="button" aria-label="Fechar" className="tp-fade absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
@@ -31,7 +33,7 @@ export function Sheet({ open, title, subtitle, onClose, children, wide }: {
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`tp-sheet relative flex max-h-[88svh] w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl outline-none md:h-full md:max-h-none md:rounded-none md:rounded-l-3xl ${wide ? 'md:max-w-xl' : 'md:max-w-md'}`}
+        className={`tp-sheet relative flex max-h-[90svh] w-full max-w-2xl flex-col rounded-t-3xl bg-white shadow-2xl outline-none md:h-full md:max-h-none md:rounded-none md:rounded-l-3xl ${wide ? 'md:max-w-xl' : 'md:max-w-md'}`}
       >
         <div className="px-4 pt-3 md:px-6 md:pt-6">
           <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-slate-200 md:hidden" aria-hidden />
@@ -45,6 +47,7 @@ export function Sheet({ open, title, subtitle, onClose, children, wide }: {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:px-6 md:pb-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

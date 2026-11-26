@@ -148,8 +148,8 @@ function SettingsForm({ initial }: { initial: Settings }) {
 
         <SectionTitle>Previsões do roteiro</SectionTitle>
         <Card className="space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Saída"><Input type="time" required value={s.dayStart} onChange={(e) => set('dayStart', e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Field label="Saída" className="col-span-2 sm:col-span-1"><Input type="time" required value={s.dayStart} onChange={(e) => set('dayStart', e.target.value)} /></Field>
             <Field label="Min/piscina"><Input type="number" inputMode="numeric" min={5} max={600} required value={s.defaultServiceMinutes} onChange={(e) => set('defaultServiceMinutes', Number(e.target.value))} /></Field>
             <Field label="Km/h médio"><Input type="number" inputMode="numeric" min={5} max={120} required value={s.avgSpeedKmh} onChange={(e) => set('avgSpeedKmh', Number(e.target.value))} /></Field>
           </div>

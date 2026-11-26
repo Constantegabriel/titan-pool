@@ -113,7 +113,7 @@ export function EmptyState({ icon, title, children }: { icon: ReactNode; title: 
     <div className="flex flex-col items-center rounded-3xl border border-slate-100 bg-white px-6 py-10 text-center shadow-card">
       {icon && <div className="mb-3 flex size-16 items-center justify-center rounded-full bg-brand-50 text-brand-600">{icon}</div>}
       <p className="font-semibold text-slate-800">{title}</p>
-      {children && <div className="mt-1 text-sm text-slate-500">{children}</div>}
+      {children && <div className="mt-1 flex max-w-sm flex-col items-center text-sm text-slate-500">{children}</div>}
     </div>
   )
 }

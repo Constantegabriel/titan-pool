@@ -33,7 +33,7 @@ export function CatalogPage() {
         <Input placeholder="Novo item (ex.: Cloro granulado 10 kg)" aria-label="Nome do item" value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-[6rem_1fr_auto] gap-2">
           <Select aria-label="Unidade" value={unit} onChange={(e) => setUnit(e.target.value as ItemUnit)}>{ITEM_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
-          <Input inputMode="decimal" placeholder="Preço (opcional)" aria-label="Preço" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <Input inputMode="decimal" placeholder="Preço" aria-label="Preço" value={price} onChange={(e) => setPrice(e.target.value)} />
           <Button onClick={add} disabled={!name.trim() || exists(name)} aria-label="Adicionar item"><Plus className="size-5" /></Button>
         </div>
         {name.trim() && exists(name) && <p className="text-sm text-amber-800">Este item já está na lista.</p>}

@@ -345,7 +345,7 @@ export function AgendaPage() {
               </div>
               <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100">
                 <Metric label="Visitas" value={`${progress.done}/${progress.total}`} />
-                <Metric label="Percurso" value={result!.totals.km ? formatKm(result!.totals.km) : '—'} />
+                <Metric label="Percurso" value={result!.totals.km ? (result!.totals.km >= 100 ? `${Math.round(result!.totals.km)} km` : formatKm(result!.totals.km)) : '—'} />
                 <Metric label="Dirigindo" value={result!.totals.driveMinutes ? formatDuration(result!.totals.driveMinutes) : '—'} />
                 <Metric label={result!.back ? 'Em casa' : 'Término'} value={result!.totals.end !== null ? formatClock(result!.totals.end) : '—'} />
               </div>
@@ -482,7 +482,7 @@ function RoutePlanner({ date, plan, settings, hasGps, current, compute, best, on
           </Field>
           <Field label="Começar de">
             <Select value={startMode} onChange={(e) => setStartMode(e.target.value as DayPlan['startMode'])}>
-              <option value="auto">{hasGps ? 'Onde estou (GPS)' : 'Automático'}</option>
+              <option value="auto">{hasGps ? 'Onde estou' : 'Automático'}</option>
               <option value="base">{settings.baseLabel || 'Casa'}</option>
             </Select>
           </Field>
@@ -663,9 +663,9 @@ function WeekStrip({ week, weekStart, selected, onSelect, onShift }: {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="px-3 py-2.5 text-center">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="text-base font-bold tabular-nums text-slate-800">{value}</p>
+    <div className="min-w-0 px-1.5 py-2.5 text-center sm:px-3">
+      <p className="truncate text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:text-[11px]">{label}</p>
+      <p className="whitespace-nowrap text-[15px] font-bold tabular-nums text-slate-800 sm:text-base">{value}</p>
     </div>
   )
 }
@@ -703,7 +703,7 @@ function NextCard({ stop, onStart, busy }: { stop: Stop; onStart: (i: AgendaItem
       <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2">
         {inProgress
           ? <ButtonLink to={`/visitas/${item.visit!.id}`} variant="light">Continuar visita</ButtonLink>
-          : <Button variant="light" onClick={() => onStart(item)} loading={busy}>Cheguei · iniciar</Button>}
+          : <Button variant="light" onClick={() => onStart(item)} loading={busy} className="whitespace-nowrap">Cheguei</Button>}
         <a href={navigationUrl(point, address)} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-white/15 px-3.5 text-sm font-semibold hover:bg-white/25">
           <Navigation className="size-4" aria-hidden /> Maps
         </a>

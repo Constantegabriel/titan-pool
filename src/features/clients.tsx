@@ -239,7 +239,7 @@ export function ClientDetailPage() {
           </Link>
         )}
         <ButtonLink to={`/compras/nova?cliente=${client.id}`} variant="secondary" className="col-span-2">
-          <ShoppingCart className="size-4" aria-hidden /> Fazer pedido de compra para este cliente
+          <ShoppingCart className="size-4" aria-hidden /> Pedido de compra para este cliente
         </ButtonLink>
       </div>
       {client.notes && <Card className="mt-3 text-sm whitespace-pre-line text-slate-700">{client.notes}</Card>}
